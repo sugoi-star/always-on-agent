@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ops Agent Dashboard</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background:#f1f5f9;margin:0;padding:0; }
+    .header { background:#0f172a;color:white;padding:24px 40px;display:flex;
+               justify-content:space-between;align-items:center; }
+    .header h1 { margin:0;font-size:20px;font-weight:700; }
+    .header .meta { font-size:13px;color:#94a3b8; }
+    .container { max-width:860px;margin:32px auto;padding:0 20px; }
+    h2 { font-size:16px;margin:0 0 8px;color:#111; }
+    p { margin:4px 0;font-size:14px;color:#374151;line-height:1.6; }
+    ul { margin:6px 0;padding-left:20px; }
+    li { font-size:14px;color:#374151;line-height:1.6;margin-bottom:4px; }
+    strong { color:#111; }
+    .footer { text-align:center;padding:32px;color:#94a3b8;font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔍 Always-On Ops Agent</h1>
+    <div class="meta">Last run: 2026-05-27 21:46 UTC &nbsp;|&nbsp; 5 issue(s) triaged</div>
+  </div>
+  <div class="container">
+    
+        <div style="background:#dc2626;color:white;border-radius:10px;padding:14px 20px;margin-bottom:24px;font-weight:600;">
+          🚨 4 critical issue(s) require immediate action: PROD-4487, PROD-4498, PROD-4519, PROD-4521
+        </div>
+    
+        <div style="background:#fff7ed;border:1.5px solid #ea580c33;border-radius:12px;padding:24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P1</span>
+            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4487</span>
+          </div>
+          <h2>PROD-4487 — Customer 'cannot complete checkout' (Acme Corp, 2400 users)</h2>
+<p><strong>Severity:</strong> P1</p>
+<p><strong>Root Cause Hypothesis:</strong></p>
+<p>The `guest-checkout` feature flag was enabled for Acme Corp's cohort at 07:12 UTC, exposing the known unfixed NPE bug in `PaymentService.java:142` where `customer.savedPaymentMethod` is null for users entering the guest-checkout flow.</p>
+<p><strong>Evidence:</strong></p>
+<ul>
+<li>Tenant-config-service v3.2.1 deployed at 07:12:08 UTC enabling `guest-checkout` flag for cohort B, which explicitly includes Acme Corp.</li>
+<li>Acme users started failing at 07:25 UTC — 13 minutes after the flag flip, consistent with rollout propagation/session refresh.</li>
+<li>Issue is tenant-specific (only Acme, not all customers), matching a feature-flag cohort enablement rather than a global payment-service regression.</li>
+<li>payment-service v4.8.2 (deployed 19 May) introduced "Add guest checkout support" — the exact code path the runbook flags as having an unfixed NPE at `PaymentService.java:142`.</li>
+<li>Spinner on payment confirmation step (never resolves) is consistent with an unhandled exception in `processCharge` causing a hung request.</li>
+<li>Runbook severity guide: "One tenant affected → P1, page CSM and on-call."</li>
+</ul>
+<p><strong>Recommended Action:</strong></p>
+<p>Immediately roll back `tenant-config-service` to v3.2.0 to disable the `guest-checkout` flag for cohort B (fastest mitigation; restores Acme before the CTO call in 25 min). In parallel, page #payments-oncall to apply the documented hotfix — add the null check at `PaymentService.java:142` falling back to the request's `paymentMethodToken` — before re-enabling the flag. Notify the CSM with this status so they can brief Acme's CTO.</p>
+<p><strong>Confidence:</strong> High</p>
+        </div>
+        <div style="background:#fff7ed;border:1.5px solid #ea580c33;border-radius:12px;padding:24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P1</span>
+            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4498</span>
+          </div>
+          <h2>PROD-4498 — Login endpoint occasionally returns 502 for ~30s windows</h2>
+<p><strong>Severity:</strong> P1</p>
+<p><strong>Root Cause Hypothesis:</strong></p>
+<p>Connection pool exhaustion on the `auth-service` → `users-db` link during load spikes, where bcrypt-bound connections drain the pool faster than it refills.</p>
+<p><strong>Evidence:</strong></p>
+<ul>
+<li>Symptoms match the `auth-502-windows` runbook exactly: bursts of 502s on `POST /auth/login` lasting 25–35s (runbook says 20–60s), no related deploys, upstream timeouts in LB logs.</li>
+<li>No deploys to `auth-service` in the relevant 24h window (last deploy was v6.0.0 on 2026-05-14, well before the incident).</li>
+<li>Auth-service pods show no restarts — consistent with a pool/saturation issue rather than crashes.</li>
+<li>Self-resolving 30s windows align with pool refill behavior under transient load.</li>
+<li>Reporter already hypothesized connection pool exhaustion, which matches the runbook's "95% of the time" root cause.</li>
+<li>Note: auth-service v6.0.0 switched session storage to Redis but the bcrypt → users-db path described in the runbook is unchanged; this is a chronic capacity issue, not a deploy regression.</li>
+</ul>
+<p><strong>Recommended Action:</strong></p>
+<p>1. Immediately: SSH to an auth-service pod and run `curl localhost:9090/metrics | grep db_pool` during/after the next 502 window to confirm `db_pool_idle` hits 0.</p>
+<p>2. Apply the documented short-term fix: bump `DB_POOL_SIZE` in `auth-service/config/prod.yaml` from 30 → 60 and redeploy.</p>
+<p>3. Do NOT scale auth-service pods horizontally (per runbook — worsens DB pool drain).</p>
+<p>4. Page auth-service on-call (Maya Singh, last deployer) and link to long-term tracking ticket PROD-4221 (argon2id migration).</p>
+<p><strong>Confidence:</strong> High</p>
+        </div>
+        <div style="background:#fff7ed;border:1.5px solid #ea580c33;border-radius:12px;padding:24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P1</span>
+            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4519</span>
+          </div>
+          <h2>PROD-4519 — Slow image uploads in mobile app</h2>
+<p><strong>Severity:</strong> P1</p>
+<p><strong>Root Cause Hypothesis:</strong></p>
+<p>The `signing-service` v2.1.4 deploy reduced pre-signed URL TTL to 300s, triggering the known signed-URL TTL bug where uploads stall waiting for signature validation.</p>
+<p><strong>Evidence:</strong></p>
+<ul>
+<li>Issue symptoms match `cdn-upload-latency` runbook exactly: 30-60s upload times, no backend errors, CDN dashboard normal, elevated latency on `POST /uploads/images`.</li>
+<li>`signing-service` v2.1.4 deployed 2026-05-17T11:22:00Z — issue began "intermittently 2 days ago" (opened 2026-05-18), aligning closely with this deploy.</li>
+<li>Deploy summary explicitly states "Reduce URL TTL for security review" — the only file changed was `config/prod.yaml`, which is exactly the config knob (`URL_TTL_SECONDS`) called out in the runbook.</li>
+<li>Both iOS and Android affected → not a client-specific issue; points to a backend/signing layer issue rather than CDN regional routing.</li>
+<li>Severity P1: broad customer impact (all mobile uploads) but not a full outage; uploads still complete, just slowly.</li>
+</ul>
+<p><strong>Recommended Action:</strong></p>
+<p>Set `URL_TTL_SECONDS` back to `3600` in `signing-service/config/prod.yaml`, or roll back `signing-service` to `v2.1.3` (last known good). Coordinate with Yuki Tanaka (deployer) since the original change was for a security review — confirm whether 3600s is acceptable or if a different mitigation is needed. Before rolling, sanity-check the CDN dashboard "Uploads → POST" panel to confirm latency is elevated across all regions (not isolated to one).</p>
+<p><strong>Confidence:</strong> High</p>
+        </div>
+        <div style="background:#fef2f2;border:1.5px solid #dc262633;border-radius:12px;padding:24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="background:#dc2626;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P0</span>
+            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4521</span>
+          </div>
+          <h2>PROD-4521 — NullPointerException in PaymentService at checkout</h2>
+<p><strong>Severity:</strong> P0</p>
+<p><strong>Root Cause Hypothesis:</strong> The `payment-service` v4.8.2 deploy introduced the known guest-checkout NPE at `PaymentService.java:142`, which began triggering broadly when the `guest-checkout` feature flag was enabled for cohort B.</p>
+<p><strong>Evidence:</strong></p>
+<ul>
+<li>Stack trace points to `PaymentService.processCharge(PaymentService.java:142)` — an exact match for the "known NPE bug" in the `payment-service-degraded` runbook (null `customer.savedPaymentMethod` in guest-checkout flow).</li>
+<li>`payment-service` v4.8.2 was deployed at 14:04:11Z, ~14 minutes before the incident opened at 14:18:23Z — well within the 60-minute window the runbook flags as the most common cause. Commit summary: "Add guest checkout support." Files changed include `PaymentService.java`.</li>
+<li>`tenant-config-service` v3.2.1 (deployed earlier) explicitly enabled the `guest-checkout` flag for cohort B (Acme Corp), which would route real traffic into the buggy code path.</li>
+<li>p99 latency jumped 800ms → 8.2s and error rate is up 340%, affecting ~2,400 checkouts across us-east-1 and eu-west-2 — broad/multi-region customer impact qualifies as P0 per the runbook severity guide.</li>
+</ul>
+<p><strong>Recommended Action:</strong> Roll back `payment-service` to **v4.8.1** (last known good — rollback is available) immediately. In parallel, disable the `guest-checkout` feature flag in `tenant-config-service` (cohort-b.yaml) as a belt-and-suspenders mitigation. Page #payments-oncall and notify the deploy author (tom.bryce). Once stable, open a hotfix PR adding the null check at `PaymentService.java:142` with fallback to the request's `paymentMethodToken`, as prescribed by the runbook.</p>
+<p><strong>Confidence:</strong> High</p>
+        </div>
+        <div style="background:#f0fdf4;border:1.5px solid #16a34a33;border-radius:12px;padding:24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P3</span>
+            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4506</span>
+          </div>
+          <h2>PROD-4506 — Add support for parallel batch jobs in worker pool</h2>
+<p><strong>Severity:</strong> P3</p>
+<p><strong>Root Cause Hypothesis:</strong></p>
+<p>This is not an incident — it's a feature request to extend `WorkerPool` with configurable concurrency for an upcoming ingestion pipeline.</p>
+<p><strong>Evidence:</strong></p>
+<ul>
+<li>Issue body proposes a design change ("Proposing we extend WorkerPool with a max_concurrency setting, default 1") rather than reporting a production symptom.</li>
+<li>No error signals, latency complaints, or user impact described.</li>
+<li>No matching pattern in any of the provided runbooks (cdn-upload-latency, payment-service-degraded, auth-502-windows) — none of them concern the worker pool or batch dispatch.</li>
+<li>No correlation with any recent deploy; the listed deploys touch payment, signing, auth, frontend, and tenant-config — none touch worker/dispatcher code.</li>
+<li>Reporter is filing a forward-looking design item ("we'll need to run up to 8 concurrent batches" for the *new* ingestion pipeline).</li>
+</ul>
+<p><strong>Recommended Action:</strong></p>
+<p>Reclassify out of the incident queue. Route to the platform/worker-pool team as a feature ticket, label `enhancement`, and ask Priya Shah to attach a design doc covering: (1) `max_concurrency` config surface, (2) dispatcher changes, (3) the proposed back-pressure signal semantics. No on-call paging required.</p>
+<p><strong>Confidence:</strong> High</p>
+        </div>
+  </div>
+  <div class="footer">Auto-generated by Always-On Ops Agent · Refreshes hourly</div>
+</body>
+</html>
