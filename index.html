@@ -85,6 +85,38 @@
     .res-id { font-family: monospace; font-size: 11px; color: #4ade80; }
     .res-title { font-size: 11px; color: #4b5563; flex: 1; }
     .res-age { font-size: 10px; color: #374151; }
+
+    /* Executive Summary */
+    .exec-summary { background: #0f172a; border-bottom: 1px solid #1e3a5f;
+                    padding: 16px 24px; display: grid;
+                    grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1px;
+                    background: linear-gradient(to right, #0f172a, #0a1628); }
+    .exec-summary { display: block; padding: 0; background: #0a1628;
+                    border-bottom: 1px solid #1e3a5f; }
+    .exec-inner { display: grid; grid-template-columns: auto 1fr 1fr 1fr;
+                  gap: 0; }
+    .exec-label { background: #0f172a; border-right: 1px solid #1e3a5f;
+                  padding: 14px 20px; display: flex; flex-direction: column;
+                  justify-content: center; }
+    .exec-label-title { font-size: 10px; font-weight: 700; color: #3b82f6;
+                        text-transform: uppercase; letter-spacing: .1em; }
+    .exec-label-sub { font-size: 11px; color: #1e3a5f; margin-top: 2px; }
+    .exec-metric { padding: 14px 20px; border-right: 1px solid #1e3a5f;
+                   display: flex; flex-direction: column; justify-content: center; }
+    .exec-metric:last-child { border-right: none; }
+    .exec-metric-val { font-size: 13px; font-weight: 600; color: #e2e8f0; line-height: 1.4; }
+    .exec-metric-key { font-size: 10px; color: #374151; margin-top: 3px;
+                       text-transform: uppercase; letter-spacing: .06em; }
+    .exec-metric-val.red { color: #f87171; }
+    .exec-metric-val.amber { color: #fb923c; }
+    .exec-metric-val.green { color: #4ade80; }
+    .exec-metric-val.blue { color: #60a5fa; }
+    .exec-action { grid-column: 2 / -1; background: rgba(96,165,250,.04);
+                   border-top: 1px solid #1e3a5f; padding: 10px 20px;
+                   display: flex; align-items: center; gap: 10px; }
+    .exec-action-lbl { font-size: 10px; font-weight: 700; color: #3b82f6;
+                       text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+    .exec-action-val { font-size: 12px; color: #93c5fd; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -110,6 +142,38 @@
   <strong>2 critical issues require immediate action</strong>
   <span class="alert-ids">PROD-4521 · PROD-4487</span>
 </div>
+<!-- Executive Summary -->
+<div class="exec-summary">
+  <div class="exec-inner">
+    <div class="exec-label">
+      <div class="exec-label-title">Executive Summary</div>
+      <div class="exec-label-sub">As of 21:46 UTC</div>
+    </div>
+    <div class="exec-metric">
+      <div class="exec-metric-val red">4 open incidents</div>
+      <div class="exec-metric-key">1 P0 · 3 P1 · requires immediate action</div>
+    </div>
+    <div class="exec-metric">
+      <div class="exec-metric-val amber">~4,400 users affected</div>
+      <div class="exec-metric-key">Acme Corp (2,400) + general checkout + auth</div>
+    </div>
+    <div class="exec-metric">
+      <div class="exec-metric-val blue">2 resolved today</div>
+      <div class="exec-metric-key">Email delivery · new-user dashboard</div>
+    </div>
+  </div>
+  <div class="exec-inner" style="border-top: 1px solid #1e3a5f;">
+    <div class="exec-label" style="background:transparent; border-right: 1px solid #1e3a5f;">
+      <div class="exec-label-title" style="color:#60a5fa;">Recommended</div>
+      <div class="exec-label-sub">First Action</div>
+    </div>
+    <div class="exec-action" style="grid-column: 2 / -1;">
+      <span class="exec-action-lbl">▶ Priority action</span>
+      <span class="exec-action-val">Roll back <strong style="color:#e2e8f0">payment-service v4.8.2 → v4.8.1</strong> — resolves both PROD-4521 and PROD-4487 simultaneously, unblocking ~4,400 users and the Acme CTO call. Rollback available, last known good confirmed.</span>
+    </div>
+  </div>
+</div>
+
 <div class="body">
 
   <!-- LEFT -->
