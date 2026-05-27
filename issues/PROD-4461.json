@@ -1,0 +1,15 @@
+{
+  "id": "PROD-4461",
+  "title": "Dashboard loading blank for new signups",
+  "status": "resolved",
+  "severity": "P1",
+  "labels": ["customer-impact", "onboarding"],
+  "assignee": "frontend-team@bts-synthetic.example",
+  "opened_at": "2026-05-25T14:22:00Z",
+  "resolved_at": "2026-05-25T16:10:00Z",
+  "reporter": "customer-success@bts-synthetic.example",
+  "body": "New customers who signed up in the last 24 hours are seeing a blank dashboard. Existing customers unaffected. Reproduced on all browsers.",
+  "comments": [
+    {"author": "frontend-team", "body": "Deploy v12.3.9 introduced a race condition in the org initializer. Rolled back to v12.3.8. All affected users can now access their dashboards."}
+  ]
+}

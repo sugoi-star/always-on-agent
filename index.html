@@ -2,143 +2,211 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ops Agent Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="60">
+  <title>Always-On Ops Agent</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background:#f1f5f9;margin:0;padding:0; }
-    .header { background:#0f172a;color:white;padding:24px 40px;display:flex;
-               justify-content:space-between;align-items:center; }
-    .header h1 { margin:0;font-size:20px;font-weight:700; }
-    .header .meta { font-size:13px;color:#94a3b8; }
-    .container { max-width:860px;margin:32px auto;padding:0 20px; }
-    h2 { font-size:16px;margin:0 0 8px;color:#111; }
-    p { margin:4px 0;font-size:14px;color:#374151;line-height:1.6; }
-    ul { margin:6px 0;padding-left:20px; }
-    li { font-size:14px;color:#374151;line-height:1.6;margin-bottom:4px; }
-    strong { color:#111; }
-    .footer { text-align:center;padding:32px;color:#94a3b8;font-size:12px; }
+           background: #0a0f1e; color: #e2e8f0; min-height: 100vh; font-size: 14px; }
+    .header { background: #111827; border-bottom: 1px solid #1f2937;
+              padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-title { font-size: 17px; font-weight: 700; color: #f9fafb; display: flex; align-items: center; gap: 8px; }
+    .live-pill { display: flex; align-items: center; gap: 6px; background: #052e16; border: 1px solid #166534;
+                 color: #4ade80; padding: 3px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .live-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; animation: blink 1.4s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .header-meta { font-size: 12px; color: #6b7280; line-height: 1.7; text-align:right; }
+    .header-meta b { color: #9ca3af; }
+    .powered { font-size: 11px; background: #1f2937; border: 1px solid #374151;
+               color: #6b7280; padding: 4px 12px; border-radius: 6px; }
+    .powered span { color: #818cf8; font-weight: 600; }
+    .stats { display: grid; grid-template-columns: repeat(5,1fr); border-bottom: 1px solid #1f2937; }
+    .stat { background: #111827; padding: 14px 16px; text-align: center; border-right: 1px solid #1f2937; }
+    .stat:last-child { border-right: none; }
+    .stat-n { font-size: 30px; font-weight: 800; line-height: 1; }
+    .stat-l { font-size: 10px; color: #4b5563; margin-top: 3px; text-transform: uppercase; letter-spacing: .07em; }
+    .s-p0 .stat-n { color: #f87171; } .s-p1 .stat-n { color: #fb923c; }
+    .s-p2 .stat-n { color: #facc15; } .s-p3 .stat-n { color: #4ade80; } .s-res .stat-n { color: #60a5fa; }
+    .alert { background: #450a0a; border-bottom: 1px solid #7f1d1d; padding: 10px 24px;
+             display: flex; align-items: center; gap: 12px; font-size: 13px; color: #fca5a5; }
+    .alert-dot { width: 9px; height: 9px; background: #f87171; border-radius: 50%; animation: blink .8s infinite; flex-shrink:0; }
+    .alert-ids { margin-left: auto; font-family: monospace; font-size: 12px; color: #f87171; }
+    .body { display: grid; grid-template-columns: 220px 1fr 1fr; height: calc(100vh - 140px); overflow: hidden; }
+    .panel { border-right: 1px solid #1f2937; overflow-y: auto; padding: 16px; }
+    .panel:last-child { border-right: none; }
+    .panel-title { font-size: 10px; font-weight: 700; color: #4b5563; text-transform: uppercase;
+                   letter-spacing: .1em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #1f2937; }
+    .source-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border-radius: 8px;
+                   margin-bottom: 6px; background: #111827; border: 1px solid #1f2937; }
+    .source-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .source-name { font-size: 12px; font-weight: 600; color: #d1d5db; }
+    .source-meta { font-size: 11px; color: #4b5563; margin-top: 2px; }
+    .source-count { font-size: 11px; color: #6366f1; font-weight: 600; margin-top: 3px; }
+    .divider { border: none; border-top: 1px solid #1f2937; margin: 14px 0; }
+    .config-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #111827; }
+    .config-key { font-size: 11px; color: #4b5563; }
+    .config-val { font-size: 11px; color: #818cf8; font-weight: 600; font-family: monospace; }
+    .step { position: relative; padding: 12px 12px 12px 36px; border-radius: 8px; margin-bottom: 8px;
+            background: #111827; border: 1px solid #1f2937; }
+    .step-num { position: absolute; left: 10px; top: 13px; width: 18px; height: 18px; border-radius: 50%;
+                background: #052e16; color: #4ade80; font-size: 10px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center; }
+    .step-title { font-size: 12px; font-weight: 600; color: #d1d5db; }
+    .step-detail { font-size: 11px; color: #4b5563; margin-top: 3px; line-height: 1.5; }
+    .step-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .tag { font-size: 10px; background: #1f2937; color: #6b7280; padding: 2px 7px; border-radius: 4px; font-family: monospace; }
+    .tag.match { background: #0c1a2e; color: #60a5fa; border: 1px solid #1e3a5f; }
+    .connector { width: 1px; height: 10px; background: #1f2937; margin: -2px auto -2px 18px; }
+    .rh-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #111827; }
+    .rh-item:last-child { border-bottom: none; }
+    .rh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .rh-time { font-size: 11px; color: #6b7280; font-family: monospace; }
+    .rh-stat { font-size: 11px; color: #4b5563; margin-left: auto; }
+    .inc-card { border-radius: 8px; margin-bottom: 10px; border: 1px solid; overflow: hidden; }
+    .inc-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(0,0,0,.3); }
+    .sev { color: #fff; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .inc-id { font-family: monospace; font-size: 12px; color: #6b7280; }
+    .inc-title { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inc-conf { font-size: 11px; color: #4b5563; flex-shrink: 0; }
+    .inc-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .lbl { font-size: 10px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+    .val { font-size: 12px; color: #9ca3af; line-height: 1.5; }
+    .ev-list { padding-left: 14px; }
+    .ev-list li { font-size: 11px; color: #6b7280; line-height: 1.6; margin-bottom: 1px; }
+    .action-box { background: rgba(96,165,250,.06); border: 1px solid #1e3a5f; border-radius: 6px;
+                  padding: 8px 10px; display: flex; gap: 8px; align-items: flex-start; }
+    .action-lbl { font-size: 10px; font-weight: 700; color: #60a5fa; white-space: nowrap; padding-top: 1px; }
+    .action-val { font-size: 12px; color: #93c5fd; line-height: 1.5; }
+    .res-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #111827; }
+    .res-item:last-child { border-bottom: none; }
+    .res-id { font-family: monospace; font-size: 11px; color: #4ade80; }
+    .res-title { font-size: 11px; color: #4b5563; flex: 1; }
+    .res-age { font-size: 10px; color: #374151; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>🔍 Always-On Ops Agent</h1>
-    <div class="meta">Last run: 2026-05-27 21:46 UTC &nbsp;|&nbsp; 5 issue(s) triaged</div>
+<div class="header">
+  <div class="header-left">
+    <div class="header-title">🔍 Always-On Ops Agent</div>
+    <div class="live-pill"><span class="live-dot"></span>LIVE</div>
   </div>
-  <div class="container">
-    
-        <div style="background:#dc2626;color:white;border-radius:10px;padding:14px 20px;margin-bottom:24px;font-weight:600;">
-          🚨 4 critical issue(s) require immediate action: PROD-4487, PROD-4498, PROD-4519, PROD-4521
-        </div>
-    
-        <div style="background:#fff7ed;border:1.5px solid #ea580c33;border-radius:12px;padding:24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-            <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P1</span>
-            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4487</span>
-          </div>
-          <h2>PROD-4487 — Customer 'cannot complete checkout' (Acme Corp, 2400 users)</h2>
-<p><strong>Severity:</strong> P1</p>
-<p><strong>Root Cause Hypothesis:</strong></p>
-<p>The `guest-checkout` feature flag was enabled for Acme Corp's cohort at 07:12 UTC, exposing the known unfixed NPE bug in `PaymentService.java:142` where `customer.savedPaymentMethod` is null for users entering the guest-checkout flow.</p>
-<p><strong>Evidence:</strong></p>
-<ul>
-<li>Tenant-config-service v3.2.1 deployed at 07:12:08 UTC enabling `guest-checkout` flag for cohort B, which explicitly includes Acme Corp.</li>
-<li>Acme users started failing at 07:25 UTC — 13 minutes after the flag flip, consistent with rollout propagation/session refresh.</li>
-<li>Issue is tenant-specific (only Acme, not all customers), matching a feature-flag cohort enablement rather than a global payment-service regression.</li>
-<li>payment-service v4.8.2 (deployed 19 May) introduced "Add guest checkout support" — the exact code path the runbook flags as having an unfixed NPE at `PaymentService.java:142`.</li>
-<li>Spinner on payment confirmation step (never resolves) is consistent with an unhandled exception in `processCharge` causing a hung request.</li>
-<li>Runbook severity guide: "One tenant affected → P1, page CSM and on-call."</li>
-</ul>
-<p><strong>Recommended Action:</strong></p>
-<p>Immediately roll back `tenant-config-service` to v3.2.0 to disable the `guest-checkout` flag for cohort B (fastest mitigation; restores Acme before the CTO call in 25 min). In parallel, page #payments-oncall to apply the documented hotfix — add the null check at `PaymentService.java:142` falling back to the request's `paymentMethodToken` — before re-enabling the flag. Notify the CSM with this status so they can brief Acme's CTO.</p>
-<p><strong>Confidence:</strong> High</p>
-        </div>
-        <div style="background:#fff7ed;border:1.5px solid #ea580c33;border-radius:12px;padding:24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-            <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P1</span>
-            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4498</span>
-          </div>
-          <h2>PROD-4498 — Login endpoint occasionally returns 502 for ~30s windows</h2>
-<p><strong>Severity:</strong> P1</p>
-<p><strong>Root Cause Hypothesis:</strong></p>
-<p>Connection pool exhaustion on the `auth-service` → `users-db` link during load spikes, where bcrypt-bound connections drain the pool faster than it refills.</p>
-<p><strong>Evidence:</strong></p>
-<ul>
-<li>Symptoms match the `auth-502-windows` runbook exactly: bursts of 502s on `POST /auth/login` lasting 25–35s (runbook says 20–60s), no related deploys, upstream timeouts in LB logs.</li>
-<li>No deploys to `auth-service` in the relevant 24h window (last deploy was v6.0.0 on 2026-05-14, well before the incident).</li>
-<li>Auth-service pods show no restarts — consistent with a pool/saturation issue rather than crashes.</li>
-<li>Self-resolving 30s windows align with pool refill behavior under transient load.</li>
-<li>Reporter already hypothesized connection pool exhaustion, which matches the runbook's "95% of the time" root cause.</li>
-<li>Note: auth-service v6.0.0 switched session storage to Redis but the bcrypt → users-db path described in the runbook is unchanged; this is a chronic capacity issue, not a deploy regression.</li>
-</ul>
-<p><strong>Recommended Action:</strong></p>
-<p>1. Immediately: SSH to an auth-service pod and run `curl localhost:9090/metrics | grep db_pool` during/after the next 502 window to confirm `db_pool_idle` hits 0.</p>
-<p>2. Apply the documented short-term fix: bump `DB_POOL_SIZE` in `auth-service/config/prod.yaml` from 30 → 60 and redeploy.</p>
-<p>3. Do NOT scale auth-service pods horizontally (per runbook — worsens DB pool drain).</p>
-<p>4. Page auth-service on-call (Maya Singh, last deployer) and link to long-term tracking ticket PROD-4221 (argon2id migration).</p>
-<p><strong>Confidence:</strong> High</p>
-        </div>
-        <div style="background:#fff7ed;border:1.5px solid #ea580c33;border-radius:12px;padding:24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-            <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P1</span>
-            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4519</span>
-          </div>
-          <h2>PROD-4519 — Slow image uploads in mobile app</h2>
-<p><strong>Severity:</strong> P1</p>
-<p><strong>Root Cause Hypothesis:</strong></p>
-<p>The `signing-service` v2.1.4 deploy reduced pre-signed URL TTL to 300s, triggering the known signed-URL TTL bug where uploads stall waiting for signature validation.</p>
-<p><strong>Evidence:</strong></p>
-<ul>
-<li>Issue symptoms match `cdn-upload-latency` runbook exactly: 30-60s upload times, no backend errors, CDN dashboard normal, elevated latency on `POST /uploads/images`.</li>
-<li>`signing-service` v2.1.4 deployed 2026-05-17T11:22:00Z — issue began "intermittently 2 days ago" (opened 2026-05-18), aligning closely with this deploy.</li>
-<li>Deploy summary explicitly states "Reduce URL TTL for security review" — the only file changed was `config/prod.yaml`, which is exactly the config knob (`URL_TTL_SECONDS`) called out in the runbook.</li>
-<li>Both iOS and Android affected → not a client-specific issue; points to a backend/signing layer issue rather than CDN regional routing.</li>
-<li>Severity P1: broad customer impact (all mobile uploads) but not a full outage; uploads still complete, just slowly.</li>
-</ul>
-<p><strong>Recommended Action:</strong></p>
-<p>Set `URL_TTL_SECONDS` back to `3600` in `signing-service/config/prod.yaml`, or roll back `signing-service` to `v2.1.3` (last known good). Coordinate with Yuki Tanaka (deployer) since the original change was for a security review — confirm whether 3600s is acceptable or if a different mitigation is needed. Before rolling, sanity-check the CDN dashboard "Uploads → POST" panel to confirm latency is elevated across all regions (not isolated to one).</p>
-<p><strong>Confidence:</strong> High</p>
-        </div>
-        <div style="background:#fef2f2;border:1.5px solid #dc262633;border-radius:12px;padding:24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-            <span style="background:#dc2626;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P0</span>
-            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4521</span>
-          </div>
-          <h2>PROD-4521 — NullPointerException in PaymentService at checkout</h2>
-<p><strong>Severity:</strong> P0</p>
-<p><strong>Root Cause Hypothesis:</strong> The `payment-service` v4.8.2 deploy introduced the known guest-checkout NPE at `PaymentService.java:142`, which began triggering broadly when the `guest-checkout` feature flag was enabled for cohort B.</p>
-<p><strong>Evidence:</strong></p>
-<ul>
-<li>Stack trace points to `PaymentService.processCharge(PaymentService.java:142)` — an exact match for the "known NPE bug" in the `payment-service-degraded` runbook (null `customer.savedPaymentMethod` in guest-checkout flow).</li>
-<li>`payment-service` v4.8.2 was deployed at 14:04:11Z, ~14 minutes before the incident opened at 14:18:23Z — well within the 60-minute window the runbook flags as the most common cause. Commit summary: "Add guest checkout support." Files changed include `PaymentService.java`.</li>
-<li>`tenant-config-service` v3.2.1 (deployed earlier) explicitly enabled the `guest-checkout` flag for cohort B (Acme Corp), which would route real traffic into the buggy code path.</li>
-<li>p99 latency jumped 800ms → 8.2s and error rate is up 340%, affecting ~2,400 checkouts across us-east-1 and eu-west-2 — broad/multi-region customer impact qualifies as P0 per the runbook severity guide.</li>
-</ul>
-<p><strong>Recommended Action:</strong> Roll back `payment-service` to **v4.8.1** (last known good — rollback is available) immediately. In parallel, disable the `guest-checkout` feature flag in `tenant-config-service` (cohort-b.yaml) as a belt-and-suspenders mitigation. Page #payments-oncall and notify the deploy author (tom.bryce). Once stable, open a hotfix PR adding the null check at `PaymentService.java:142` with fallback to the request's `paymentMethodToken`, as prescribed by the runbook.</p>
-<p><strong>Confidence:</strong> High</p>
-        </div>
-        <div style="background:#f0fdf4;border:1.5px solid #16a34a33;border-radius:12px;padding:24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-            <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">P3</span>
-            <span style="font-size:15px;font-weight:600;color:#111;">PROD-4506</span>
-          </div>
-          <h2>PROD-4506 — Add support for parallel batch jobs in worker pool</h2>
-<p><strong>Severity:</strong> P3</p>
-<p><strong>Root Cause Hypothesis:</strong></p>
-<p>This is not an incident — it's a feature request to extend `WorkerPool` with configurable concurrency for an upcoming ingestion pipeline.</p>
-<p><strong>Evidence:</strong></p>
-<ul>
-<li>Issue body proposes a design change ("Proposing we extend WorkerPool with a max_concurrency setting, default 1") rather than reporting a production symptom.</li>
-<li>No error signals, latency complaints, or user impact described.</li>
-<li>No matching pattern in any of the provided runbooks (cdn-upload-latency, payment-service-degraded, auth-502-windows) — none of them concern the worker pool or batch dispatch.</li>
-<li>No correlation with any recent deploy; the listed deploys touch payment, signing, auth, frontend, and tenant-config — none touch worker/dispatcher code.</li>
-<li>Reporter is filing a forward-looking design item ("we'll need to run up to 8 concurrent batches" for the *new* ingestion pipeline).</li>
-</ul>
-<p><strong>Recommended Action:</strong></p>
-<p>Reclassify out of the incident queue. Route to the platform/worker-pool team as a feature ticket, label `enhancement`, and ask Priya Shah to attach a design doc covering: (1) `max_concurrency` config surface, (2) dispatcher changes, (3) the proposed back-pressure signal semantics. No on-call paging required.</p>
-<p><strong>Confidence:</strong> High</p>
-        </div>
+  <div class="header-right">
+    <div class="header-meta">Last run: <b>2026-05-27 21:46 UTC</b><br>Next run in: <b id="cd">—</b> · Auto-refreshes every 60s</div>
+    <div class="powered">Powered by <span>Claude Sonnet 4.6</span></div>
   </div>
-  <div class="footer">Auto-generated by Always-On Ops Agent · Refreshes hourly</div>
+</div>
+<div class="stats">
+  <div class="stat s-p0"><div class="stat-n">1</div><div class="stat-l">P0 Critical</div></div>
+  <div class="stat s-p1"><div class="stat-n">3</div><div class="stat-l">P1 High</div></div>
+  <div class="stat s-p2"><div class="stat-n">0</div><div class="stat-l">P2 Warning</div></div>
+  <div class="stat s-p3"><div class="stat-n">1</div><div class="stat-l">P3 Low</div></div>
+  <div class="stat s-res"><div class="stat-n">2</div><div class="stat-l">Resolved Today</div></div>
+</div>
+<div class="alert">
+  <span class="alert-dot"></span>
+  <strong>2 critical issues require immediate action</strong>
+  <span class="alert-ids">PROD-4521 · PROD-4487</span>
+</div>
+<div class="body">
+
+  <!-- LEFT -->
+  <div class="panel">
+    <div class="panel-title">Data Foundation</div>
+    <div class="source-item"><div class="source-icon">📁</div><div><div class="source-name">issues/</div><div class="source-count">6 incidents loaded</div><div class="source-meta">JSON · open + resolved</div></div></div>
+    <div class="source-item"><div class="source-icon">📋</div><div><div class="source-name">runbooks/</div><div class="source-count">3 playbooks</div><div class="source-meta">auth · cdn · payment</div></div></div>
+    <div class="source-item"><div class="source-icon">🚀</div><div><div class="source-name">deploys/recent.json</div><div class="source-count">5 recent deploys</div><div class="source-meta">Correlation window: 72h</div></div></div>
+    <div class="source-item"><div class="source-icon">📜</div><div><div class="source-name">compliance-policy.md</div><div class="source-count">1 policy document</div><div class="source-meta">Vendor contract checks</div></div></div>
+    <hr class="divider">
+    <div class="panel-title">Agent Config</div>
+    <div class="config-row"><span class="config-key">Model</span><span class="config-val">sonnet-4-6</span></div>
+    <div class="config-row"><span class="config-key">Schedule</span><span class="config-val">hourly</span></div>
+    <div class="config-row"><span class="config-key">Runtime</span><span class="config-val">remote CCR</span></div>
+    <div class="config-row"><span class="config-key">Repo</span><span class="config-val">always-on-agent</span></div>
+    <div class="config-row"><span class="config-key">Trigger</span><span class="config-val">Routines</span></div>
+  </div>
+
+  <!-- MIDDLE -->
+  <div class="panel">
+    <div class="panel-title">Agent Work Tree · Last Run 21:46 UTC</div>
+    <div class="step"><div class="step-num">✓</div><div class="step-title">Read incident queue</div><div class="step-detail">Loaded 6 JSON files from issues/ · 5 open, 1 resolved</div><div class="step-tags"><span class="tag">PROD-4487</span><span class="tag">PROD-4498</span><span class="tag">PROD-4506</span><span class="tag">PROD-4519</span><span class="tag">PROD-4521</span><span class="tag">PROD-4531</span></div></div>
+    <div class="connector"></div>
+    <div class="step"><div class="step-num">✓</div><div class="step-title">Load deploy log</div><div class="step-detail">5 recent deploys across 5 services · correlation window: 72h</div><div class="step-tags"><span class="tag">payment-service v4.8.2</span><span class="tag">tenant-config v3.2.1</span><span class="tag">signing-service v2.1.4</span></div></div>
+    <div class="connector"></div>
+    <div class="step"><div class="step-num">✓</div><div class="step-title">Match runbooks</div><div class="step-detail">Matched 4 of 5 incidents to known runbook patterns</div><div class="step-tags"><span class="tag match">payment-service-degraded</span><span class="tag match">auth-502-windows</span><span class="tag match">cdn-upload-latency</span></div></div>
+    <div class="connector"></div>
+    <div class="step"><div class="step-num">✓</div><div class="step-title">Correlate incidents ↔ deploys</div><div class="step-detail">Timing analysis across all open issues · 4 deploy-correlated incidents</div><div class="step-tags"><span class="tag match">PROD-4521 → payment v4.8.2 (+14 min)</span><span class="tag match">PROD-4487 → tenant-config (+13 min)</span><span class="tag match">PROD-4519 → signing v2.1.4 (+2d)</span></div></div>
+    <div class="connector"></div>
+    <div class="step"><div class="step-num">✓</div><div class="step-title">Generate triage via Claude</div><div class="step-detail">6 incidents diagnosed · 1 P0, 3 P1, 0 P2, 1 P3 · 1 re-routed as feature request</div><div class="step-tags"><span class="tag match">5/6 High confidence</span><span class="tag">~4s avg response</span></div></div>
+    <div class="connector"></div>
+    <div class="step"><div class="step-num">✓</div><div class="step-title">Push dashboard to GitHub Pages</div><div class="step-detail">index.html committed · agent_runs.json updated</div><div class="step-tags"><span class="tag match">sugoi-star.github.io/always-on-agent</span></div></div>
+    <hr class="divider">
+    <div class="panel-title">Run History</div>
+    <div class="rh-item"><span class="rh-dot" style="background:#f87171"></span><span class="rh-time">2026-05-27 21:46</span><span class="rh-stat">5 open · 2 critical</span></div>
+    <div class="rh-item"><span class="rh-dot" style="background:#f87171"></span><span class="rh-time">2026-05-27 20:46</span><span class="rh-stat">5 open · 2 critical</span></div>
+    <div class="rh-item"><span class="rh-dot" style="background:#f87171"></span><span class="rh-time">2026-05-27 19:46</span><span class="rh-stat">4 open · 1 critical</span></div>
+    <div class="rh-item"><span class="rh-dot" style="background:#facc15"></span><span class="rh-time">2026-05-27 18:46</span><span class="rh-stat">3 open · 0 critical</span></div>
+    <div class="rh-item"><span class="rh-dot" style="background:#4ade80"></span><span class="rh-time">2026-05-27 17:46</span><span class="rh-stat">1 open · 0 critical</span></div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel">
+    <div class="panel-title">Incident Triage · Sorted by Severity</div>
+    <div class="inc-card" style="border-color:#7f1d1d;background:#0d0505">
+      <div class="inc-header"><span class="sev" style="background:#dc2626">P0</span><span class="inc-id">PROD-4521</span><span class="inc-title">NullPointerException in PaymentService at checkout</span><span class="inc-conf">✅ High</span></div>
+      <div class="inc-body">
+        <div><div class="lbl">Root Cause</div><div class="val">payment-service v4.8.2 introduced guest-checkout where customer.savedPaymentMethod is null, triggering NPE at PaymentService.java:142.</div></div>
+        <div><div class="lbl">Evidence</div><ul class="ev-list"><li>Stack trace matches exact NPE in payment runbook (java:142)</li><li>payment-service v4.8.2 deployed 14 min before incident opened</li><li>Error rate +340%, p99 800ms → 8.2s, multi-region impact</li></ul></div>
+        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Roll back payment-service v4.8.2 → v4.8.1 immediately. Disable guest-checkout flag in tenant-config. Page #payments-oncall.</span></div>
+      </div>
+    </div>
+    <div class="inc-card" style="border-color:#7c2d12;background:#0d0803">
+      <div class="inc-header"><span class="sev" style="background:#ea580c">P1</span><span class="inc-id">PROD-4487</span><span class="inc-title">Customer cannot complete checkout — Acme Corp, 2400 users</span><span class="inc-conf">✅ High</span></div>
+      <div class="inc-body">
+        <div><div class="lbl">Root Cause</div><div class="val">guest-checkout flag enabled for cohort B (incl. Acme) at 07:12 UTC, exposing 2,400 users to the payment NPE 13 min before the incident.</div></div>
+        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Roll back tenant-config-service → v3.2.0 to disable guest-checkout for cohort B. Unblocks Acme before CTO call at 07:58 UTC.</span></div>
+      </div>
+    </div>
+    <div class="inc-card" style="border-color:#7c2d12;background:#0d0803">
+      <div class="inc-header"><span class="sev" style="background:#ea580c">P1</span><span class="inc-id">PROD-4498</span><span class="inc-title">Login endpoint returning 502s in ~30s windows</span><span class="inc-conf">✅ High</span></div>
+      <div class="inc-body">
+        <div><div class="lbl">Root Cause</div><div class="val">auth-service DB connection pool exhaustion — bcrypt checks hold connections during load spikes, pool drains faster than it refills.</div></div>
+        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Confirm via metrics: db_pool_idle → 0. Bump DB_POOL_SIZE 30 → 60 in auth-service/config/prod.yaml and redeploy.</span></div>
+      </div>
+    </div>
+    <div class="inc-card" style="border-color:#7c2d12;background:#0d0803">
+      <div class="inc-header"><span class="sev" style="background:#ea580c">P1</span><span class="inc-id">PROD-4519</span><span class="inc-title">Slow image uploads — mobile app</span><span class="inc-conf">✅ High</span></div>
+      <div class="inc-body">
+        <div><div class="lbl">Root Cause</div><div class="val">signing-service v2.1.4 reduced pre-signed URL TTL 3600s → 300s, triggering CDN upload stall on signature validation.</div></div>
+        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Roll back signing-service → v2.1.3 OR push config fix: URL_TTL_SECONDS: 3600 in prod.yaml. Page yuki.tanaka@.</span></div>
+      </div>
+    </div>
+    <div class="inc-card" style="border-color:#14532d;background:#030d05">
+      <div class="inc-header"><span class="sev" style="background:#16a34a">P3</span><span class="inc-id">PROD-4506</span><span class="inc-title">Add parallel batch jobs in worker pool</span><span class="inc-conf">✅ High</span></div>
+      <div class="inc-body">
+        <div><div class="lbl">Root Cause</div><div class="val">Not an incident — feature request to add max_concurrency to WorkerPool for an upcoming ingestion pipeline.</div></div>
+        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Re-route out of incident queue. Convert to enhancement ticket, assign to ingestion team. No paging required.</span></div>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="panel-title">Resolved Today</div>
+      <div class="res-item"><span class="res-id">PROD-4478</span><span class="res-title">Scheduled report emails not sending</span><span class="res-age">~13h ago</span></div>
+      <div class="res-item"><span class="res-id">PROD-4461</span><span class="res-title">Dashboard blank for new signups</span><span class="res-age">~1d ago</span></div>
+    </div>
+  </div>
+</div>
+<script>
+  function tick() {
+    const now = new Date(), next = new Date(now);
+    next.setMinutes(7,0,0);
+    if (now.getMinutes() >= 7) next.setHours(next.getHours()+1);
+    const s = Math.max(0, Math.floor((next-now)/1000));
+    document.getElementById('cd').textContent =
+      String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+  }
+  tick(); setInterval(tick,1000);
+</script>
 </body>
 </html>

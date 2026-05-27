@@ -1,0 +1,15 @@
+{
+  "id": "PROD-4478",
+  "title": "Scheduled report emails not sending",
+  "status": "resolved",
+  "severity": "P2",
+  "labels": ["email", "scheduled-jobs"],
+  "assignee": "eng-oncall@bts-synthetic.example",
+  "opened_at": "2026-05-26T06:00:00Z",
+  "resolved_at": "2026-05-26T08:45:00Z",
+  "reporter": "customer-success@bts-synthetic.example",
+  "body": "Multiple enterprise customers reporting they did not receive their Monday morning scheduled reports. Issue started at 06:00 UTC. Sendgrid dashboard shows queued but not delivered.",
+  "comments": [
+    {"author": "eng-oncall", "body": "Root cause: Sendgrid API key rotated by security team at 05:45 UTC without updating the mailer service config. Fix deployed at 08:40 UTC. All queued emails delivered."}
+  ]
+}

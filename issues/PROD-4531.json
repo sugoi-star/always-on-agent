@@ -1,0 +1,12 @@
+{
+  "id": "PROD-4531",
+  "title": "CDN upload latency spike — EU region (all customers)",
+  "status": "open",
+  "severity": null,
+  "labels": ["customer-impact", "cdn"],
+  "assignee": null,
+  "opened_at": "2026-05-27T18:14:00Z",
+  "reporter": "ops-alerts@bts-synthetic.example",
+  "body": "Automated alert: p99 upload latency in eu-west-2 has exceeded 30s for the past 8 minutes. Affects all customers uploading images from EU region. No errors in backend logs — CDN dashboard shows normal throughput. iOS and Android both affected.",
+  "comments": []
+}
