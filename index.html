@@ -4,273 +4,377 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="refresh" content="60">
-  <title>Always-On Ops Agent</title>
+  <title>Ops Agent Dashboard</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-           background: #0a0f1e; color: #e2e8f0; min-height: 100vh; font-size: 14px; }
-    .header { background: #111827; border-bottom: 1px solid #1f2937;
-              padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
-    .header-left { display: flex; align-items: center; gap: 14px; }
-    .header-title { font-size: 17px; font-weight: 700; color: #f9fafb; display: flex; align-items: center; gap: 8px; }
-    .live-pill { display: flex; align-items: center; gap: 6px; background: #052e16; border: 1px solid #166534;
-                 color: #4ade80; padding: 3px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-    .live-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; animation: blink 1.4s infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-    .header-right { display: flex; align-items: center; gap: 20px; }
-    .header-meta { font-size: 12px; color: #6b7280; line-height: 1.7; text-align:right; }
-    .header-meta b { color: #9ca3af; }
-    .powered { font-size: 11px; background: #1f2937; border: 1px solid #374151;
-               color: #6b7280; padding: 4px 12px; border-radius: 6px; }
-    .powered span { color: #818cf8; font-weight: 600; }
-    .stats { display: grid; grid-template-columns: repeat(5,1fr); border-bottom: 1px solid #1f2937; }
-    .stat { background: #111827; padding: 14px 16px; text-align: center; border-right: 1px solid #1f2937; }
-    .stat:last-child { border-right: none; }
-    .stat-n { font-size: 30px; font-weight: 800; line-height: 1; }
-    .stat-l { font-size: 10px; color: #4b5563; margin-top: 3px; text-transform: uppercase; letter-spacing: .07em; }
-    .s-p0 .stat-n { color: #f87171; } .s-p1 .stat-n { color: #fb923c; }
-    .s-p2 .stat-n { color: #facc15; } .s-p3 .stat-n { color: #4ade80; } .s-res .stat-n { color: #60a5fa; }
-    .alert { background: #450a0a; border-bottom: 1px solid #7f1d1d; padding: 10px 24px;
-             display: flex; align-items: center; gap: 12px; font-size: 13px; color: #fca5a5; }
-    .alert-dot { width: 9px; height: 9px; background: #f87171; border-radius: 50%; animation: blink .8s infinite; flex-shrink:0; }
-    .alert-ids { margin-left: auto; font-family: monospace; font-size: 12px; color: #f87171; }
-    .body { display: grid; grid-template-columns: 220px 1fr 1fr; height: calc(100vh - 140px); overflow: hidden; }
-    .panel { border-right: 1px solid #1f2937; overflow-y: auto; padding: 16px; }
-    .panel:last-child { border-right: none; }
-    .panel-title { font-size: 10px; font-weight: 700; color: #4b5563; text-transform: uppercase;
-                   letter-spacing: .1em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #1f2937; }
-    .source-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border-radius: 8px;
-                   margin-bottom: 6px; background: #111827; border: 1px solid #1f2937; }
-    .source-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-    .source-name { font-size: 12px; font-weight: 600; color: #d1d5db; }
-    .source-meta { font-size: 11px; color: #4b5563; margin-top: 2px; }
-    .source-count { font-size: 11px; color: #6366f1; font-weight: 600; margin-top: 3px; }
-    .divider { border: none; border-top: 1px solid #1f2937; margin: 14px 0; }
-    .config-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #111827; }
-    .config-key { font-size: 11px; color: #4b5563; }
-    .config-val { font-size: 11px; color: #818cf8; font-weight: 600; font-family: monospace; }
-    .step { position: relative; padding: 12px 12px 12px 36px; border-radius: 8px; margin-bottom: 8px;
-            background: #111827; border: 1px solid #1f2937; }
-    .step-num { position: absolute; left: 10px; top: 13px; width: 18px; height: 18px; border-radius: 50%;
-                background: #052e16; color: #4ade80; font-size: 10px; font-weight: 700;
-                display: flex; align-items: center; justify-content: center; }
-    .step-title { font-size: 12px; font-weight: 600; color: #d1d5db; }
-    .step-detail { font-size: 11px; color: #4b5563; margin-top: 3px; line-height: 1.5; }
-    .step-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .tag { font-size: 10px; background: #1f2937; color: #6b7280; padding: 2px 7px; border-radius: 4px; font-family: monospace; }
-    .tag.match { background: #0c1a2e; color: #60a5fa; border: 1px solid #1e3a5f; }
-    .connector { width: 1px; height: 10px; background: #1f2937; margin: -2px auto -2px 18px; }
-    .rh-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #111827; }
-    .rh-item:last-child { border-bottom: none; }
-    .rh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .rh-time { font-size: 11px; color: #6b7280; font-family: monospace; }
-    .rh-stat { font-size: 11px; color: #4b5563; margin-left: auto; }
-    .inc-card { border-radius: 8px; margin-bottom: 10px; border: 1px solid; overflow: hidden; }
-    .inc-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(0,0,0,.3); }
-    .sev { color: #fff; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; flex-shrink: 0; }
-    .inc-id { font-family: monospace; font-size: 12px; color: #6b7280; }
-    .inc-title { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .inc-conf { font-size: 11px; color: #4b5563; flex-shrink: 0; }
-    .inc-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-    .lbl { font-size: 10px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
-    .val { font-size: 12px; color: #9ca3af; line-height: 1.5; }
-    .ev-list { padding-left: 14px; }
-    .ev-list li { font-size: 11px; color: #6b7280; line-height: 1.6; margin-bottom: 1px; }
-    .action-box { background: rgba(96,165,250,.06); border: 1px solid #1e3a5f; border-radius: 6px;
-                  padding: 8px 10px; display: flex; gap: 8px; align-items: flex-start; }
-    .action-lbl { font-size: 10px; font-weight: 700; color: #60a5fa; white-space: nowrap; padding-top: 1px; }
-    .action-val { font-size: 12px; color: #93c5fd; line-height: 1.5; }
-    .res-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #111827; }
-    .res-item:last-child { border-bottom: none; }
-    .res-id { font-family: monospace; font-size: 11px; color: #4ade80; }
-    .res-title { font-size: 11px; color: #4b5563; flex: 1; }
-    .res-age { font-size: 10px; color: #374151; }
+            background: #0f172a; color: #e2e8f0; min-height: 100vh; }
 
-    /* Executive Summary */
-    .exec-summary { background: #0f172a; border-bottom: 1px solid #1e3a5f;
-                    padding: 16px 24px; display: grid;
-                    grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1px;
-                    background: linear-gradient(to right, #0f172a, #0a1628); }
-    .exec-summary { display: block; padding: 0; background: #0a1628;
-                    border-bottom: 1px solid #1e3a5f; }
-    .exec-inner { display: grid; grid-template-columns: auto 1fr 1fr 1fr;
-                  gap: 0; }
-    .exec-label { background: #0f172a; border-right: 1px solid #1e3a5f;
-                  padding: 14px 20px; display: flex; flex-direction: column;
-                  justify-content: center; }
-    .exec-label-title { font-size: 10px; font-weight: 700; color: #3b82f6;
-                        text-transform: uppercase; letter-spacing: .1em; }
-    .exec-label-sub { font-size: 11px; color: #1e3a5f; margin-top: 2px; }
-    .exec-metric { padding: 14px 20px; border-right: 1px solid #1e3a5f;
-                   display: flex; flex-direction: column; justify-content: center; }
-    .exec-metric:last-child { border-right: none; }
-    .exec-metric-val { font-size: 13px; font-weight: 600; color: #e2e8f0; line-height: 1.4; }
-    .exec-metric-key { font-size: 10px; color: #374151; margin-top: 3px;
-                       text-transform: uppercase; letter-spacing: .06em; }
-    .exec-metric-val.red { color: #f87171; }
-    .exec-metric-val.amber { color: #fb923c; }
-    .exec-metric-val.green { color: #4ade80; }
-    .exec-metric-val.blue { color: #60a5fa; }
-    .exec-action { grid-column: 2 / -1; background: rgba(96,165,250,.04);
-                   border-top: 1px solid #1e3a5f; padding: 10px 20px;
-                   display: flex; align-items: center; gap: 10px; }
-    .exec-action-lbl { font-size: 10px; font-weight: 700; color: #3b82f6;
-                       text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
-    .exec-action-val { font-size: 12px; color: #93c5fd; line-height: 1.5; }
+    /* Header */
+    .header { background: #1e293b; border-bottom: 1px solid #334155;
+               padding: 16px 28px; display: flex; align-items: center;
+               justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+    .live-badge { display: flex; align-items: center; gap: 6px;
+                   background: #064e3b; border: 1px solid #065f46;
+                   color: #34d399; padding: 3px 10px; border-radius: 20px;
+                   font-size: 12px; font-weight: 600; }
+    .live-dot { width: 7px; height: 7px; background: #34d399; border-radius: 50%;
+                 animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+    .header-meta { font-size: 12px; color: #64748b; text-align: right; line-height: 1.8; }
+    .header-meta span { color: #94a3b8; }
+
+    /* Stats bar */
+    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr);
+                  gap: 1px; background: #334155; border-bottom: 1px solid #334155; }
+    .stat { background: #1e293b; padding: 16px 20px; text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 11px; color: #64748b; margin-top: 4px;
+                   text-transform: uppercase; letter-spacing: .05em; }
+    .stat.critical .stat-num { color: #f87171; }
+    .stat.warning .stat-num  { color: #fb923c; }
+    .stat.low .stat-num      { color: #4ade80; }
+    .stat.total .stat-num    { color: #94a3b8; }
+    .stat.resolved .stat-num { color: #60a5fa; }
+
+    /* Alert banner */
+    .alert-banner { background: #7f1d1d; border-bottom: 1px solid #991b1b;
+                     padding: 12px 28px; display: flex; align-items: center;
+                     gap: 12px; font-size: 14px; color: #fecaca; }
+    .pulse-dot { width: 10px; height: 10px; background: #f87171; border-radius: 50%;
+                  animation: pulse 1s infinite; flex-shrink: 0; }
+    .alert-ids { margin-left: auto; font-family: monospace; font-size: 13px;
+                  color: #fca5a5; }
+
+    /* Main layout */
+    .main { display: grid; grid-template-columns: 1fr 300px;
+             gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+    /* Incident cards */
+    .section-title { font-size: 12px; font-weight: 600; color: #64748b;
+                      text-transform: uppercase; letter-spacing: .08em;
+                      margin-bottom: 12px; }
+    .incident-card { border: 1px solid; border-radius: 10px; margin-bottom: 12px;
+                      overflow: hidden; }
+    .card-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+                    background: rgba(0,0,0,.15); flex-wrap: wrap; }
+    .sev-badge { color: white; padding: 2px 10px; border-radius: 20px;
+                  font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .issue-id { font-family: monospace; font-size: 13px; color: #94a3b8;
+                 font-weight: 600; }
+    .issue-title { font-size: 14px; color: #e2e8f0; font-weight: 500; flex: 1; }
+    .conf-badge { font-size: 12px; color: #64748b; margin-left: auto; }
+    .card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .card-section { display: flex; flex-direction: column; gap: 4px; }
+    .label { font-size: 11px; font-weight: 600; color: #64748b;
+              text-transform: uppercase; letter-spacing: .06em; }
+    .value { font-size: 14px; color: #cbd5e1; line-height: 1.5; }
+    .evidence-list { padding-left: 18px; }
+    .evidence-list li { font-size: 13px; color: #94a3b8; line-height: 1.6;
+                         margin-bottom: 2px; }
+    .card-action { background: rgba(0,0,0,.2); border-radius: 6px;
+                    padding: 10px 12px; display: flex; gap: 8px; align-items: flex-start; }
+    .action-label { font-size: 11px; font-weight: 700; color: #60a5fa;
+                     white-space: nowrap; padding-top: 2px; }
+    .action-text { font-size: 13px; color: #bfdbfe; line-height: 1.5; }
+
+    /* Sidebar */
+    .sidebar { display: flex; flex-direction: column; gap: 20px; }
+    .sidebar-card { background: #1e293b; border: 1px solid #334155;
+                     border-radius: 10px; padding: 16px; }
+
+    /* Deploys */
+    .deploy-item { padding: 10px 0; border-bottom: 1px solid #1e293b; }
+    .deploy-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .deploy-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .deploy-svc { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+    .deploy-ver { font-size: 11px; color: #94a3b8; font-family: monospace; }
+    .deploy-ago { font-size: 11px; color: #64748b; margin-left: auto; }
+    .deploy-summary { font-size: 12px; color: #64748b; margin-bottom: 3px; }
+    .deploy-rollback { font-size: 11px; font-weight: 600; }
+
+    /* Resolved */
+    .resolved-item { display: flex; align-items: center; gap: 8px; padding: 8px 0;
+                      border-bottom: 1px solid #1e293b; }
+    .resolved-item:last-child { border-bottom: none; }
+    .resolved-id { font-family: monospace; font-size: 12px; color: #60a5fa; flex-shrink: 0; }
+    .resolved-title { font-size: 12px; color: #64748b; flex: 1; }
+    .resolved-age { font-size: 11px; color: #475569; flex-shrink: 0; }
+
+    /* Run history */
+    .run-item { display: flex; align-items: center; gap: 8px; padding: 7px 0;
+                 border-bottom: 1px solid #1e293b; }
+    .run-item:last-child { border-bottom: none; }
+    .run-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .run-time { font-size: 12px; color: #94a3b8; font-family: monospace; }
+    .run-detail { font-size: 11px; color: #64748b; margin-left: auto; }
+
+    .footer { text-align: center; padding: 24px; color: #334155; font-size: 12px; }
+    .footer span { color: #475569; }
   </style>
 </head>
 <body>
+
 <div class="header">
   <div class="header-left">
     <div class="header-title">🔍 Always-On Ops Agent</div>
-    <div class="live-pill"><span class="live-dot"></span>LIVE</div>
+    <div class="live-badge"><span class="live-dot"></span> LIVE</div>
   </div>
-  <div class="header-right">
-    <div class="header-meta">Last run: <b>2026-05-27 21:46 UTC</b><br>Next run in: <b id="cd">—</b> · Auto-refreshes every 60s</div>
-    <div class="powered">Powered by <span>Claude Sonnet 4.6</span></div>
+  <div class="header-meta">
+    Last run: <span>2026-05-27 22:01 UTC</span><br>
+    Auto-refreshes every 60s · Powered by Claude
   </div>
 </div>
-<div class="stats">
-  <div class="stat s-p0"><div class="stat-n">1</div><div class="stat-l">P0 Critical</div></div>
-  <div class="stat s-p1"><div class="stat-n">3</div><div class="stat-l">P1 High</div></div>
-  <div class="stat s-p2"><div class="stat-n">0</div><div class="stat-l">P2 Warning</div></div>
-  <div class="stat s-p3"><div class="stat-n">1</div><div class="stat-l">P3 Low</div></div>
-  <div class="stat s-res"><div class="stat-n">2</div><div class="stat-l">Resolved Today</div></div>
-</div>
-<div class="alert">
-  <span class="alert-dot"></span>
-  <strong>2 critical issues require immediate action</strong>
-  <span class="alert-ids">PROD-4521 · PROD-4487</span>
-</div>
-<!-- Executive Summary -->
-<div class="exec-summary">
-  <div class="exec-inner">
-    <div class="exec-label">
-      <div class="exec-label-title">Executive Summary</div>
-      <div class="exec-label-sub">As of 21:46 UTC</div>
-    </div>
-    <div class="exec-metric">
-      <div class="exec-metric-val red">4 open incidents</div>
-      <div class="exec-metric-key">1 P0 · 3 P1 · requires immediate action</div>
-    </div>
-    <div class="exec-metric">
-      <div class="exec-metric-val amber">~4,400 users affected</div>
-      <div class="exec-metric-key">Acme Corp (2,400) + general checkout + auth</div>
-    </div>
-    <div class="exec-metric">
-      <div class="exec-metric-val blue">2 resolved today</div>
-      <div class="exec-metric-key">Email delivery · new-user dashboard</div>
-    </div>
+
+<div class="stats-bar">
+  <div class="stat critical">
+    <div class="stat-num">4</div>
+    <div class="stat-label">Critical (P0+P1)</div>
   </div>
-  <div class="exec-inner" style="border-top: 1px solid #1e3a5f;">
-    <div class="exec-label" style="background:transparent; border-right: 1px solid #1e3a5f;">
-      <div class="exec-label-title" style="color:#60a5fa;">Recommended</div>
-      <div class="exec-label-sub">First Action</div>
+  <div class="stat warning">
+    <div class="stat-num">1</div>
+    <div class="stat-label">Warning (P2)</div>
+  </div>
+  <div class="stat low">
+    <div class="stat-num">1</div>
+    <div class="stat-label">Low (P3)</div>
+  </div>
+  <div class="stat total">
+    <div class="stat-num">6</div>
+    <div class="stat-label">Open</div>
+  </div>
+  <div class="stat resolved">
+    <div class="stat-num">0</div>
+    <div class="stat-label">Resolved Today</div>
+  </div>
+</div>
+
+
+        <div class="alert-banner">
+          <span class="pulse-dot"></span>
+          <strong>4 critical issue(s) require immediate action</strong>
+          <span class="alert-ids">PROD-4487 · PROD-4519 · PROD-4521 · PROD-4531</span>
+        </div>
+
+<div class="main">
+  <div class="incidents-col">
+    <div class="section-title">Open Incidents — sorted by severity</div>
+    
+        <div class="incident-card" style="border-color:#fdba74;background:#fff7ed">
+          <div class="card-header">
+            <span class="sev-badge" style="background:#ea580c">P1</span>
+            <span class="issue-id">PROD-4487</span>
+            <span class="issue-title">Customer 'cannot complete checkout' (Acme Corp, 2400 users)</span>
+            <span class="conf-badge">✅ High</span>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="label">Root Cause</div>
+              <div class="value">The tenant-config-service deploy at 07:12 UTC enabled the "guest-checkout" feature flag for Acme Corp (cohort B), triggering a known NPE bug in payment-service v4.8.2 at PaymentService.java:142 where `customer.savedPaymentMethod` is null for guest checkout flows.</div>
+            </div>
+            <div class="card-section">
+              <div class="label">Evidence</div>
+              <ul class="evidence-list"><li>tenant-config-service v3.2.1 deployed at 07:12 UTC explicitly enabled `guest-checkout` for cohort B including Acme Corp — 13 minutes before incident reported at 07:25 UTC</li><li>payment-service v4.8.2 (deployed yesterday) added guest checkout support and the payment-service runbook documents a known NPE at line 142 when `customer.savedPaymentMethod` is null in the guest checkout flow</li><li>Impact is tenant-specific (only Acme Corp affected), consistent with a feature flag rollout scoped to cohort B, not a global regression</li></ul>
+            </div>
+            <div class="card-action">
+              <span class="action-label">▶ Recommended Action</span>
+              <span class="action-text">Roll back tenant-config-service to v3.2.0 immediately (rollback available) to disable the guest-checkout flag for cohort B, stopping customer impact before the CTO call in ~20 minutes; then apply the null-check hotfix at PaymentService.java:142 before re-enabling the flag.</span>
+            </div>
+          </div>
+        </div>
+        <div class="incident-card" style="border-color:#fdba74;background:#fff7ed">
+          <div class="card-header">
+            <span class="sev-badge" style="background:#ea580c">P1</span>
+            <span class="issue-id">PROD-4519</span>
+            <span class="issue-title">Slow image uploads in mobile app</span>
+            <span class="conf-badge">✅ High</span>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="label">Root Cause</div>
+              <div class="value">The signing-service v2.1.4 deploy (2026-05-17) reduced the pre-signed URL TTL from 3600s to 300s, causing uploads to stall during signature validation and tripling POST /uploads/images latency.</div>
+            </div>
+            <div class="card-section">
+              <div class="label">Evidence</div>
+              <ul class="evidence-list"><li>Runbook cdn-upload-latency explicitly names this pattern: no errors, elevated latency, and a signing-service deploy reducing URL_TTL_SECONDS as the cause</li><li>signing-service v2.1.4 deployed 2026-05-17 with summary "Reduce URL TTL for security review" modifying config/prod.yaml — timing matches onset of intermittent issues ~2 days ago</li><li>CDN dashboard shows normal traffic and backend logs show no errors, ruling out CDN routing issues or backend crashes; both iOS and Android affected equally rules out a client-side bug</li></ul>
+            </div>
+            <div class="card-action">
+              <span class="action-label">▶ Recommended Action</span>
+              <span class="action-text">Set `URL_TTL_SECONDS` to 3600 in `signing-service/config/prod.yaml` and redeploy, or roll back signing-service to v2.1.3 (rollback is available) — contact yuki.tanaka@bts-synthetic.example immediately.</span>
+            </div>
+          </div>
+        </div>
+        <div class="incident-card" style="border-color:#fdba74;background:#fff7ed">
+          <div class="card-header">
+            <span class="sev-badge" style="background:#ea580c">P1</span>
+            <span class="issue-id">PROD-4521</span>
+            <span class="issue-title">NullPointerException in PaymentService at checkout</span>
+            <span class="conf-badge">✅ High</span>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="label">Root Cause</div>
+              <div class="value">The v4.8.2 payment-service deploy introduced a NullPointerException at PaymentService.java:142 where `customer.savedPaymentMethod` is null for guest checkout users, triggered at scale by the tenant-config-service feature flag enabling guest-checkout for cohort B.</div>
+            </div>
+            <div class="card-section">
+              <div class="label">Evidence</div>
+              <ul class="evidence-list"><li>Deploy of payment-service v4.8.2 at 14:04Z added guest checkout support, modifying PaymentService.java; incident began at 14:18Z (~14 minutes later)</li><li>Stack trace matches the known NPE bug at exactly PaymentService.java:142, consistent with the runbook's documented guest checkout null path</li><li>tenant-config-service v3.2.1 enabled the 'guest-checkout' feature flag for cohort B (including Acme Corp) at 07:12Z today, meaning guest checkout traffic was active when the new code deployed</li></ul>
+            </div>
+            <div class="card-action">
+              <span class="action-label">▶ Recommended Action</span>
+              <span class="action-text">Immediately roll back payment-service to v4.8.1 via `rollback payment-service to last_known_good v4.8.1` (rollback_available: true), then page #payments-oncall — scope is ~2,400 active checkouts across two regions warranting P1; simultaneously disable the 'guest-checkout' feature flag in tenant-config-service v3.2.1 to prevent recurrence on re-deploy until the null check hotfix at line 142 is applied.</span>
+            </div>
+          </div>
+        </div>
+        <div class="incident-card" style="border-color:#fdba74;background:#fff7ed">
+          <div class="card-header">
+            <span class="sev-badge" style="background:#ea580c">P1</span>
+            <span class="issue-id">PROD-4531</span>
+            <span class="issue-title">CDN upload latency spike — EU region (all customers)</span>
+            <span class="conf-badge">✅ High</span>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="label">Root Cause</div>
+              <div class="value">The signing-service v2.1.4 deploy (May 17) reduced the pre-signed URL TTL from 3600s to 300s, causing EU upload requests to stall waiting for signature re-validation and producing 30s+ p99 latency.</div>
+            </div>
+            <div class="card-section">
+              <div class="label">Evidence</div>
+              <ul class="evidence-list"><li>p99 upload latency >30s in eu-west-2 with no backend errors and normal CDN throughput — exact symptom pattern described in the cdn-upload-latency runbook for a signed-URL TTL bug</li><li>signing-service v2.1.4 explicitly reduced URL TTL ("Reduce URL TTL for security review," commit a87f2dd, `config/prod.yaml`) and rollback to v2.1.3 is available</li><li>Runbook directly states: if issue started within 6 hours of a signing-service deploy, set `URL_TTL_SECONDS` back to 3600 — the deploy is recent enough to still be the active config change in production</li></ul>
+            </div>
+            <div class="card-action">
+              <span class="action-label">▶ Recommended Action</span>
+              <span class="action-text">Set `URL_TTL_SECONDS=3600` in `signing-service/config/prod.yaml` (or roll back to v2.1.3) and redeploy — contact yuki.tanaka@bts-synthetic.example to confirm the change.</span>
+            </div>
+          </div>
+        </div>
+        <div class="incident-card" style="border-color:#fcd34d;background:#fffbeb">
+          <div class="card-header">
+            <span class="sev-badge" style="background:#d97706">P2</span>
+            <span class="issue-id">PROD-4498</span>
+            <span class="issue-title">Login endpoint occasionally returns 502 for ~30s windows</span>
+            <span class="conf-badge">✅ High</span>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="label">Root Cause</div>
+              <div class="value">Connection pool exhaustion on the auth-service → users-db link is causing bcrypt hash operations to drain idle connections during load spikes, producing 25-35s 502 windows on POST /auth/login.</div>
+            </div>
+            <div class="card-section">
+              <div class="label">Evidence</div>
+              <ul class="evidence-list"><li>Load balancer logs confirm upstream timeouts, consistent with auth-service pool exhaustion pattern described in runbook `auth-502-windows`</li><li>auth-service v6.0.0 (deployed 2026-05-14) switched session storage to Redis, introducing potential config changes to `prod.yaml` that may have affected DB pool settings</li><li>Three separate 502 windows in 24 hours (~25-35s each) with self-resolution matches the pool-drain-and-refill cycle described in the runbook (no restarts, no deploys in windows)</li></ul>
+            </div>
+            <div class="card-action">
+              <span class="action-label">▶ Recommended Action</span>
+              <span class="action-text">SSH to an auth-service pod and run `curl localhost:9090/metrics | grep db_pool` — if `db_pool_idle` hits 0 during a 502 window, immediately bump `DB_POOL_SIZE` in `auth-service/config/prod.yaml` from 30 to 60 and redeploy.</span>
+            </div>
+          </div>
+        </div>
+        <div class="incident-card" style="border-color:#86efac;background:#f0fdf4">
+          <div class="card-header">
+            <span class="sev-badge" style="background:#16a34a">P3</span>
+            <span class="issue-id">PROD-4506</span>
+            <span class="issue-title">Add support for parallel batch jobs in worker pool</span>
+            <span class="conf-badge">✅ High</span>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="label">Root Cause</div>
+              <div class="value">This is a feature request, not an incident — the worker pool lacks parallel batch job support needed for a new ingestion pipeline.</div>
+            </div>
+            <div class="card-section">
+              <div class="label">Evidence</div>
+              <ul class="evidence-list"><li>Ticket body is a design proposal ("Proposing we extend WorkerPool..."), not a production alert</li><li>No error reports, no user impact, no SLO breach mentioned</li><li>No relevant recent deploys or runbook matches; all deploys are unrelated services</li></ul>
+            </div>
+            <div class="card-action">
+              <span class="action-label">▶ Recommended Action</span>
+              <span class="action-text">Reassign PROD-4506 to priya.shah@bts-synthetic.example's engineering team as a feature ticket and move it to the backlog/sprint planning queue.</span>
+            </div>
+          </div>
+        </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-card">
+      <div class="section-title">Recent Deploys</div>
+      
+        <div class="deploy-item">
+          <div class="deploy-header">
+            <span class="deploy-svc">payment-service</span>
+            <span class="deploy-ver">v4.8.2</span>
+            <span class="deploy-ago">8d ago</span>
+          </div>
+          <div class="deploy-summary">Add guest checkout support</div>
+          <div class="deploy-rollback" style="color:#16a34a">✓ rollback available</div>
+        </div>
+        <div class="deploy-item">
+          <div class="deploy-header">
+            <span class="deploy-svc">signing-service</span>
+            <span class="deploy-ver">v2.1.4</span>
+            <span class="deploy-ago">10d ago</span>
+          </div>
+          <div class="deploy-summary">Reduce URL TTL for security review</div>
+          <div class="deploy-rollback" style="color:#16a34a">✓ rollback available</div>
+        </div>
+        <div class="deploy-item">
+          <div class="deploy-header">
+            <span class="deploy-svc">auth-service</span>
+            <span class="deploy-ver">v6.0.0</span>
+            <span class="deploy-ago">13d ago</span>
+          </div>
+          <div class="deploy-summary">Major: switch session storage to Redis</div>
+          <div class="deploy-rollback" style="color:#dc2626">✗ no rollback</div>
+        </div>
+        <div class="deploy-item">
+          <div class="deploy-header">
+            <span class="deploy-svc">frontend</span>
+            <span class="deploy-ver">v12.4.1</span>
+            <span class="deploy-ago">7d ago</span>
+          </div>
+          <div class="deploy-summary">Minor: copy update on pricing page</div>
+          <div class="deploy-rollback" style="color:#16a34a">✓ rollback available</div>
+        </div>
+        <div class="deploy-item">
+          <div class="deploy-header">
+            <span class="deploy-svc">tenant-config-service</span>
+            <span class="deploy-ver">v3.2.1</span>
+            <span class="deploy-ago">7d ago</span>
+          </div>
+          <div class="deploy-summary">Enable feature flag 'guest-checkout' for cohort B (Acme Corp included)</div>
+          <div class="deploy-rollback" style="color:#16a34a">✓ rollback available</div>
+        </div>
     </div>
-    <div class="exec-action" style="grid-column: 2 / -1;">
-      <span class="exec-action-lbl">▶ Priority action</span>
-      <span class="exec-action-val">Roll back <strong style="color:#e2e8f0">payment-service v4.8.2 → v4.8.1</strong> — resolves both PROD-4521 and PROD-4487 simultaneously, unblocking ~4,400 users and the Acme CTO call. Rollback available, last known good confirmed.</span>
+
+    <div class="sidebar-card">
+      <div class="section-title">Resolved Recently</div>
+      
+        <div class="resolved-item">
+          <span class="resolved-id">PROD-4478</span>
+          <span class="resolved-title">Scheduled report emails not sending…</span>
+          <span class="resolved-age">1d ago</span>
+        </div>
+        <div class="resolved-item">
+          <span class="resolved-id">PROD-4461</span>
+          <span class="resolved-title">Dashboard loading blank for new signups…</span>
+          <span class="resolved-age">2d ago</span>
+        </div>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="section-title">Agent Run History</div>
+      
+        <div class="run-item">
+          <span class="run-dot" style="background:#dc2626"></span>
+          <span class="run-time">2026-05-27 22:01 UTC</span>
+          <span class="run-detail">6 open · 4 critical</span>
+        </div>
     </div>
   </div>
 </div>
 
-<div class="body">
+<div class="footer">Always-On Ops Agent · <span>sugoi-star/always-on-agent</span> · Refreshes hourly via Claude Routines</div>
 
-  <!-- LEFT -->
-  <div class="panel">
-    <div class="panel-title">Data Foundation</div>
-    <div class="source-item"><div class="source-icon">📁</div><div><div class="source-name">issues/</div><div class="source-count">6 incidents loaded</div><div class="source-meta">JSON · open + resolved</div></div></div>
-    <div class="source-item"><div class="source-icon">📋</div><div><div class="source-name">runbooks/</div><div class="source-count">3 playbooks</div><div class="source-meta">auth · cdn · payment</div></div></div>
-    <div class="source-item"><div class="source-icon">🚀</div><div><div class="source-name">deploys/recent.json</div><div class="source-count">5 recent deploys</div><div class="source-meta">Correlation window: 72h</div></div></div>
-    <div class="source-item"><div class="source-icon">📜</div><div><div class="source-name">compliance-policy.md</div><div class="source-count">1 policy document</div><div class="source-meta">Vendor contract checks</div></div></div>
-    <hr class="divider">
-    <div class="panel-title">Agent Config</div>
-    <div class="config-row"><span class="config-key">Model</span><span class="config-val">sonnet-4-6</span></div>
-    <div class="config-row"><span class="config-key">Schedule</span><span class="config-val">hourly</span></div>
-    <div class="config-row"><span class="config-key">Runtime</span><span class="config-val">remote CCR</span></div>
-    <div class="config-row"><span class="config-key">Repo</span><span class="config-val">always-on-agent</span></div>
-    <div class="config-row"><span class="config-key">Trigger</span><span class="config-val">Routines</span></div>
-  </div>
-
-  <!-- MIDDLE -->
-  <div class="panel">
-    <div class="panel-title">Agent Work Tree · Last Run 21:46 UTC</div>
-    <div class="step"><div class="step-num">✓</div><div class="step-title">Read incident queue</div><div class="step-detail">Loaded 6 JSON files from issues/ · 5 open, 1 resolved</div><div class="step-tags"><span class="tag">PROD-4487</span><span class="tag">PROD-4498</span><span class="tag">PROD-4506</span><span class="tag">PROD-4519</span><span class="tag">PROD-4521</span><span class="tag">PROD-4531</span></div></div>
-    <div class="connector"></div>
-    <div class="step"><div class="step-num">✓</div><div class="step-title">Load deploy log</div><div class="step-detail">5 recent deploys across 5 services · correlation window: 72h</div><div class="step-tags"><span class="tag">payment-service v4.8.2</span><span class="tag">tenant-config v3.2.1</span><span class="tag">signing-service v2.1.4</span></div></div>
-    <div class="connector"></div>
-    <div class="step"><div class="step-num">✓</div><div class="step-title">Match runbooks</div><div class="step-detail">Matched 4 of 5 incidents to known runbook patterns</div><div class="step-tags"><span class="tag match">payment-service-degraded</span><span class="tag match">auth-502-windows</span><span class="tag match">cdn-upload-latency</span></div></div>
-    <div class="connector"></div>
-    <div class="step"><div class="step-num">✓</div><div class="step-title">Correlate incidents ↔ deploys</div><div class="step-detail">Timing analysis across all open issues · 4 deploy-correlated incidents</div><div class="step-tags"><span class="tag match">PROD-4521 → payment v4.8.2 (+14 min)</span><span class="tag match">PROD-4487 → tenant-config (+13 min)</span><span class="tag match">PROD-4519 → signing v2.1.4 (+2d)</span></div></div>
-    <div class="connector"></div>
-    <div class="step"><div class="step-num">✓</div><div class="step-title">Generate triage via Claude</div><div class="step-detail">6 incidents diagnosed · 1 P0, 3 P1, 0 P2, 1 P3 · 1 re-routed as feature request</div><div class="step-tags"><span class="tag match">5/6 High confidence</span><span class="tag">~4s avg response</span></div></div>
-    <div class="connector"></div>
-    <div class="step"><div class="step-num">✓</div><div class="step-title">Push dashboard to GitHub Pages</div><div class="step-detail">index.html committed · agent_runs.json updated</div><div class="step-tags"><span class="tag match">sugoi-star.github.io/always-on-agent</span></div></div>
-    <hr class="divider">
-    <div class="panel-title">Run History</div>
-    <div class="rh-item"><span class="rh-dot" style="background:#f87171"></span><span class="rh-time">2026-05-27 21:46</span><span class="rh-stat">5 open · 2 critical</span></div>
-    <div class="rh-item"><span class="rh-dot" style="background:#f87171"></span><span class="rh-time">2026-05-27 20:46</span><span class="rh-stat">5 open · 2 critical</span></div>
-    <div class="rh-item"><span class="rh-dot" style="background:#f87171"></span><span class="rh-time">2026-05-27 19:46</span><span class="rh-stat">4 open · 1 critical</span></div>
-    <div class="rh-item"><span class="rh-dot" style="background:#facc15"></span><span class="rh-time">2026-05-27 18:46</span><span class="rh-stat">3 open · 0 critical</span></div>
-    <div class="rh-item"><span class="rh-dot" style="background:#4ade80"></span><span class="rh-time">2026-05-27 17:46</span><span class="rh-stat">1 open · 0 critical</span></div>
-  </div>
-
-  <!-- RIGHT -->
-  <div class="panel">
-    <div class="panel-title">Incident Triage · Sorted by Severity</div>
-    <div class="inc-card" style="border-color:#7f1d1d;background:#0d0505">
-      <div class="inc-header"><span class="sev" style="background:#dc2626">P0</span><span class="inc-id">PROD-4521</span><span class="inc-title">NullPointerException in PaymentService at checkout</span><span class="inc-conf">✅ High</span></div>
-      <div class="inc-body">
-        <div><div class="lbl">Root Cause</div><div class="val">payment-service v4.8.2 introduced guest-checkout where customer.savedPaymentMethod is null, triggering NPE at PaymentService.java:142.</div></div>
-        <div><div class="lbl">Evidence</div><ul class="ev-list"><li>Stack trace matches exact NPE in payment runbook (java:142)</li><li>payment-service v4.8.2 deployed 14 min before incident opened</li><li>Error rate +340%, p99 800ms → 8.2s, multi-region impact</li></ul></div>
-        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Roll back payment-service v4.8.2 → v4.8.1 immediately. Disable guest-checkout flag in tenant-config. Page #payments-oncall.</span></div>
-      </div>
-    </div>
-    <div class="inc-card" style="border-color:#7c2d12;background:#0d0803">
-      <div class="inc-header"><span class="sev" style="background:#ea580c">P1</span><span class="inc-id">PROD-4487</span><span class="inc-title">Customer cannot complete checkout — Acme Corp, 2400 users</span><span class="inc-conf">✅ High</span></div>
-      <div class="inc-body">
-        <div><div class="lbl">Root Cause</div><div class="val">guest-checkout flag enabled for cohort B (incl. Acme) at 07:12 UTC, exposing 2,400 users to the payment NPE 13 min before the incident.</div></div>
-        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Roll back tenant-config-service → v3.2.0 to disable guest-checkout for cohort B. Unblocks Acme before CTO call at 07:58 UTC.</span></div>
-      </div>
-    </div>
-    <div class="inc-card" style="border-color:#7c2d12;background:#0d0803">
-      <div class="inc-header"><span class="sev" style="background:#ea580c">P1</span><span class="inc-id">PROD-4498</span><span class="inc-title">Login endpoint returning 502s in ~30s windows</span><span class="inc-conf">✅ High</span></div>
-      <div class="inc-body">
-        <div><div class="lbl">Root Cause</div><div class="val">auth-service DB connection pool exhaustion — bcrypt checks hold connections during load spikes, pool drains faster than it refills.</div></div>
-        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Confirm via metrics: db_pool_idle → 0. Bump DB_POOL_SIZE 30 → 60 in auth-service/config/prod.yaml and redeploy.</span></div>
-      </div>
-    </div>
-    <div class="inc-card" style="border-color:#7c2d12;background:#0d0803">
-      <div class="inc-header"><span class="sev" style="background:#ea580c">P1</span><span class="inc-id">PROD-4519</span><span class="inc-title">Slow image uploads — mobile app</span><span class="inc-conf">✅ High</span></div>
-      <div class="inc-body">
-        <div><div class="lbl">Root Cause</div><div class="val">signing-service v2.1.4 reduced pre-signed URL TTL 3600s → 300s, triggering CDN upload stall on signature validation.</div></div>
-        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Roll back signing-service → v2.1.3 OR push config fix: URL_TTL_SECONDS: 3600 in prod.yaml. Page yuki.tanaka@.</span></div>
-      </div>
-    </div>
-    <div class="inc-card" style="border-color:#14532d;background:#030d05">
-      <div class="inc-header"><span class="sev" style="background:#16a34a">P3</span><span class="inc-id">PROD-4506</span><span class="inc-title">Add parallel batch jobs in worker pool</span><span class="inc-conf">✅ High</span></div>
-      <div class="inc-body">
-        <div><div class="lbl">Root Cause</div><div class="val">Not an incident — feature request to add max_concurrency to WorkerPool for an upcoming ingestion pipeline.</div></div>
-        <div class="action-box"><span class="action-lbl">▶ ACTION</span><span class="action-val">Re-route out of incident queue. Convert to enhancement ticket, assign to ingestion team. No paging required.</span></div>
-      </div>
-    </div>
-    <div style="margin-top:12px">
-      <div class="panel-title">Resolved Today</div>
-      <div class="res-item"><span class="res-id">PROD-4478</span><span class="res-title">Scheduled report emails not sending</span><span class="res-age">~13h ago</span></div>
-      <div class="res-item"><span class="res-id">PROD-4461</span><span class="res-title">Dashboard blank for new signups</span><span class="res-age">~1d ago</span></div>
-    </div>
-  </div>
-</div>
-<script>
-  function tick() {
-    const now = new Date(), next = new Date(now);
-    next.setMinutes(7,0,0);
-    if (now.getMinutes() >= 7) next.setHours(next.getHours()+1);
-    const s = Math.max(0, Math.floor((next-now)/1000));
-    document.getElementById('cd').textContent =
-      String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
-  }
-  tick(); setInterval(tick,1000);
-</script>
 </body>
 </html>
