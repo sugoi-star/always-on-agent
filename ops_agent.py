@@ -29,10 +29,8 @@ EVIDENCE:
 ACTION: One concrete recommended action — name the service, file, command, or person.
 CONFIDENCE: High|Medium|Low"""
 
-SEV_COLOR  = {"P0": "#dc2626", "P1": "#ea580c", "P2": "#d97706", "P3": "#16a34a"}
-SEV_BG     = {"P0": "#fef2f2", "P1": "#fff7ed", "P2": "#fffbeb", "P3": "#f0fdf4"}
-SEV_BORDER = {"P0": "#fca5a5", "P1": "#fdba74", "P2": "#fcd34d", "P3": "#86efac"}
 SEV_BADGE  = {"P0": "#dc2626", "P1": "#ea580c", "P2": "#d97706", "P3": "#16a34a"}
+SEV_CLASS  = {"P0": "card-p0", "P1": "card-p1", "P2": "card-p2", "P3": "card-p3"}
 
 
 def load_json(path):
@@ -123,11 +121,41 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
     for r in open_results:
         counts[r["severity"]] = counts.get(r["severity"], 0) + 1
     critical = counts["P0"] + counts["P1"]
-    resolved_today = len([i for i in resolved_issues if i.get("resolved_at", "").startswith("2026-05-27")])
+    resolved_today = len([i for i in resolved_issues
+                          if i.get("resolved_at", "").startswith(now_utc[:7])])
 
     # Sort: P0 first
     order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
     sorted_results = sorted(open_results, key=lambda r: order.get(r["severity"], 9))
+
+    # Executive summary — top priority action
+    priority_action = ""
+    priority_issue_id = ""
+    for r in sorted_results:
+        if r["severity"] in ("P0", "P1"):
+            priority_action = r["action"]
+            priority_issue_id = r["issue_id"]
+            break
+
+    exec_html = f"""
+<div class="exec">
+  <div class="exec-tag">
+    <div class="exec-tag-title">Executive Summary</div>
+    <div class="exec-tag-sub">As of {now_utc} UTC</div>
+  </div>
+  <div class="exec-metric">
+    <div class="exec-val red">{critical} critical incident{"s" if critical != 1 else ""} open</div>
+    <div class="exec-key">Requires immediate engineering action</div>
+  </div>
+  <div class="exec-metric">
+    <div class="exec-val amber">{len(open_results)} total open incidents</div>
+    <div class="exec-key">{counts.get("P2", 0)} warning · {counts.get("P3", 0)} low priority</div>
+  </div>
+  <div class="exec-metric">
+    <div class="exec-val blue">{priority_issue_id or "No critical issues"}</div>
+    <div class="exec-key">Highest priority incident</div>
+  </div>
+</div>"""
 
     # Alert banner
     critical_ids = [r["issue_id"] for r in sorted_results if r["severity"] in ("P0", "P1")]
@@ -135,11 +163,20 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
     if critical_ids:
         ids_str = " · ".join(critical_ids)
         alert_html = f"""
-        <div class="alert-banner">
-          <span class="pulse-dot"></span>
-          <strong>{len(critical_ids)} critical issue(s) require immediate action</strong>
-          <span class="alert-ids">{ids_str}</span>
-        </div>"""
+<div class="alert">
+  <span class="alert-dot"></span>
+  <strong>{len(critical_ids)} critical issue(s) require immediate action</strong>
+  <span class="alert-ids">{ids_str}</span>
+</div>"""
+
+    # Priority action bar
+    action_bar_html = ""
+    if priority_action:
+        action_bar_html = f"""
+<div class="action-bar">
+  <span class="action-bar-lbl">▶ Priority Action</span>
+  <span class="action-bar-val">{priority_action}</span>
+</div>"""
 
     # Incident cards
     cards_html = ""
@@ -147,30 +184,23 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
         sev = r["severity"]
         evidence_items = "".join(f"<li>{e}</li>" for e in r["evidence"])
         conf_icon = {"High": "✅", "Medium": "⚠️", "Low": "❓"}.get(r["confidence"], "")
-        status_badge = f'<span class="sev-badge" style="background:{SEV_BADGE[sev]}">{sev}</span>'
         cards_html += f"""
-        <div class="incident-card" style="border-color:{SEV_BORDER[sev]};background:{SEV_BG[sev]}">
-          <div class="card-header">
-            {status_badge}
-            <span class="issue-id">{r["issue_id"]}</span>
-            <span class="issue-title">{r["title"]}</span>
-            <span class="conf-badge">{conf_icon} {r["confidence"]}</span>
-          </div>
-          <div class="card-body">
-            <div class="card-section">
-              <div class="label">Root Cause</div>
-              <div class="value">{r["hypothesis"]}</div>
-            </div>
-            <div class="card-section">
-              <div class="label">Evidence</div>
-              <ul class="evidence-list">{evidence_items}</ul>
-            </div>
-            <div class="card-action">
-              <span class="action-label">▶ Recommended Action</span>
-              <span class="action-text">{r["action"]}</span>
-            </div>
-          </div>
-        </div>"""
+    <div class="incident-card {SEV_CLASS.get(sev, '')}">
+      <div class="card-header">
+        <span class="sev-badge" style="background:{SEV_BADGE[sev]}">{sev}</span>
+        <span class="issue-id">{r["issue_id"]}</span>
+        <span class="issue-title">{r["title"]}</span>
+        <span class="conf-badge">{conf_icon} {r["confidence"]} confidence</span>
+      </div>
+      <div class="card-body">
+        <div><div class="label">Root Cause</div><div class="value">{r["hypothesis"]}</div></div>
+        <div><div class="label">Evidence</div><ul class="evidence-list">{evidence_items}</ul></div>
+        <div class="card-action">
+          <span class="action-label">▶ ACTION</span>
+          <span class="action-text">{r["action"]}</span>
+        </div>
+      </div>
+    </div>"""
 
     # Deploy timeline
     deploy_items = ""
@@ -179,42 +209,46 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
         ver = d.get("version", "")
         ago = time_ago(d.get("deployed_at", ""))
         summary = d.get("summary", "")
-        rollback = "✓ rollback available" if d.get("rollback_available") else "✗ no rollback"
+        lkg = d.get("last_known_good", "")
+        rollback = f"✓ rollback available → {lkg}" if d.get("rollback_available") else "✗ no rollback available"
         rb_color = "#16a34a" if d.get("rollback_available") else "#dc2626"
         deploy_items += f"""
-        <div class="deploy-item">
-          <div class="deploy-header">
-            <span class="deploy-svc">{svc}</span>
-            <span class="deploy-ver">{ver}</span>
-            <span class="deploy-ago">{ago}</span>
-          </div>
-          <div class="deploy-summary">{summary}</div>
-          <div class="deploy-rollback" style="color:{rb_color}">{rollback}</div>
-        </div>"""
+      <div class="deploy-item">
+        <div class="deploy-header">
+          <span class="deploy-svc">{svc}</span>
+          <span class="deploy-ver">{ver}</span>
+          <span class="deploy-ago">{ago}</span>
+        </div>
+        <div class="deploy-summary">{summary}</div>
+        <div class="deploy-rollback" style="color:{rb_color}">{rollback}</div>
+      </div>"""
 
     # Resolved incidents
     resolved_html = ""
     for i in resolved_issues[-4:][::-1]:
         resolved_html += f"""
-        <div class="resolved-item">
-          <span class="resolved-id">{i["id"]}</span>
-          <span class="resolved-title">{i.get("title","")[:50]}…</span>
-          <span class="resolved-age">{time_ago(i.get("resolved_at",""))}</span>
-        </div>"""
+      <div class="resolved-item">
+        <span class="resolved-id">{i["id"]}</span>
+        <span class="resolved-title">{i.get("title", "")[:48]}</span>
+        <span class="resolved-age">{time_ago(i.get("resolved_at", ""))}</span>
+      </div>"""
 
     # Run history
     runs_html = ""
     for run in run_log.get("runs", [])[-6:][::-1]:
         t = run.get("time", "")[:16].replace("T", " ")
-        found = run.get("open_count", 0)
         critical_count = run.get("critical_count", 0)
+        open_count = run.get("open_count", 0)
         dot_color = "#dc2626" if critical_count > 0 else "#16a34a"
         runs_html += f"""
-        <div class="run-item">
-          <span class="run-dot" style="background:{dot_color}"></span>
-          <span class="run-time">{t} UTC</span>
-          <span class="run-detail">{found} open · {critical_count} critical</span>
-        </div>"""
+      <div class="run-item">
+        <span class="run-dot" style="background:{dot_color}"></span>
+        <span class="run-time">{t} UTC</span>
+        <span class="run-detail">{open_count} open · {critical_count} critical</span>
+      </div>"""
+
+    resolved_fallback = '<div style="color:#94a3b8;font-size:13px;">No resolved incidents</div>'
+    runs_fallback     = '<div style="color:#94a3b8;font-size:13px;">No runs yet</div>'
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -226,111 +260,148 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f172a; color: #e2e8f0; min-height: 100vh; }}
+           background: #f1f5f9; color: #0f172a; min-height: 100vh; }}
 
-    /* Header */
-    .header {{ background: #1e293b; border-bottom: 1px solid #334155;
-               padding: 16px 28px; display: flex; align-items: center;
-               justify-content: space-between; }}
+    /* ── Header ── */
+    .header {{ background: #1e293b; padding: 14px 28px;
+              display: flex; align-items: center; justify-content: space-between; }}
     .header-left {{ display: flex; align-items: center; gap: 12px; }}
-    .header-title {{ font-size: 18px; font-weight: 700; color: #f1f5f9; }}
-    .live-badge {{ display: flex; align-items: center; gap: 6px;
-                   background: #064e3b; border: 1px solid #065f46;
-                   color: #34d399; padding: 3px 10px; border-radius: 20px;
-                   font-size: 12px; font-weight: 600; }}
-    .live-dot {{ width: 7px; height: 7px; background: #34d399; border-radius: 50%;
-                 animation: pulse 2s infinite; }}
-    @keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:.4 }} }}
-    .header-meta {{ font-size: 12px; color: #64748b; text-align: right; line-height: 1.8; }}
-    .header-meta span {{ color: #94a3b8; }}
+    .header-title {{ font-size: 17px; font-weight: 700; color: #f8fafc; }}
+    .live-pill {{ display: flex; align-items: center; gap: 6px; background: #052e16;
+                 border: 1px solid #166534; color: #4ade80; padding: 3px 12px;
+                 border-radius: 20px; font-size: 11px; font-weight: 700; }}
+    .live-dot {{ width: 7px; height: 7px; background: #4ade80; border-radius: 50%;
+                animation: blink 1.4s ease-in-out infinite; }}
+    @keyframes blink {{ 0%,100%{{opacity:1}} 50%{{opacity:.25}} }}
+    .header-right {{ display: flex; align-items: center; gap: 16px; }}
+    .header-meta {{ font-size: 12px; color: #94a3b8; text-align: right; line-height: 1.8; }}
+    .header-meta strong {{ color: #cbd5e1; }}
+    .powered {{ font-size: 11px; background: #0f172a; border: 1px solid #334155;
+               color: #64748b; padding: 4px 12px; border-radius: 6px; }}
+    .powered span {{ color: #a5b4fc; font-weight: 600; }}
 
-    /* Stats bar */
-    .stats-bar {{ display: grid; grid-template-columns: repeat(5, 1fr);
-                  gap: 1px; background: #334155; border-bottom: 1px solid #334155; }}
-    .stat {{ background: #1e293b; padding: 16px 20px; text-align: center; }}
-    .stat-num {{ font-size: 28px; font-weight: 800; line-height: 1; }}
-    .stat-label {{ font-size: 11px; color: #64748b; margin-top: 4px;
-                   text-transform: uppercase; letter-spacing: .05em; }}
-    .stat.critical .stat-num {{ color: #f87171; }}
-    .stat.warning .stat-num  {{ color: #fb923c; }}
-    .stat.low .stat-num      {{ color: #4ade80; }}
-    .stat.total .stat-num    {{ color: #94a3b8; }}
-    .stat.resolved .stat-num {{ color: #60a5fa; }}
+    /* ── Stats bar ── */
+    .stats-bar {{ display: grid; grid-template-columns: repeat(5,1fr);
+                 border-bottom: 2px solid #e2e8f0; }}
+    .stat {{ background: #ffffff; padding: 18px 20px; text-align: center;
+            border-right: 1px solid #e2e8f0; position: relative; }}
+    .stat:last-child {{ border-right: none; }}
+    .stat-num {{ font-size: 32px; font-weight: 800; line-height: 1; color: #0f172a; }}
+    .stat-label {{ font-size: 10px; color: #64748b; margin-top: 4px;
+                  text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }}
 
-    /* Alert banner */
-    .alert-banner {{ background: #7f1d1d; border-bottom: 1px solid #991b1b;
-                     padding: 12px 28px; display: flex; align-items: center;
-                     gap: 12px; font-size: 14px; color: #fecaca; }}
-    .pulse-dot {{ width: 10px; height: 10px; background: #f87171; border-radius: 50%;
-                  animation: pulse 1s infinite; flex-shrink: 0; }}
-    .alert-ids {{ margin-left: auto; font-family: monospace; font-size: 13px;
-                  color: #fca5a5; }}
+    /* Pulsing red glow on critical tile */
+    @keyframes critical-glow {{
+      0%,100% {{ box-shadow: inset 0 -3px 0 #dc2626, 0 0 0 0 rgba(220,38,38,0); }}
+      50%      {{ box-shadow: inset 0 -3px 0 #dc2626, 0 4px 24px 0 rgba(220,38,38,.22); }}
+    }}
+    .stat.critical {{ animation: critical-glow 2s ease-in-out infinite; border-bottom: 3px solid #dc2626; }}
+    .stat.critical .stat-num {{ color: #dc2626; }}
+    .stat.warning  .stat-num {{ color: #ea580c; }}
+    .stat.low      .stat-num {{ color: #16a34a; }}
+    .stat.total    .stat-num {{ color: #0f172a; }}
+    .stat.resolved .stat-num {{ color: #2563eb; }}
 
-    /* Main layout */
+    /* ── Executive Summary ── */
+    .exec {{ background: #fff; border-bottom: 2px solid #e2e8f0;
+            padding: 16px 28px; display: grid;
+            grid-template-columns: 140px 1fr 1fr 1fr; gap: 0; }}
+    .exec-tag {{ display: flex; flex-direction: column; justify-content: center;
+                padding-right: 20px; border-right: 1px solid #e2e8f0; }}
+    .exec-tag-title {{ font-size: 10px; font-weight: 700; color: #2563eb;
+                      text-transform: uppercase; letter-spacing: .1em; }}
+    .exec-tag-sub {{ font-size: 11px; color: #94a3b8; margin-top: 2px; }}
+    .exec-metric {{ padding: 0 20px; border-right: 1px solid #e2e8f0;
+                   display: flex; flex-direction: column; justify-content: center; }}
+    .exec-metric:last-child {{ border-right: none; }}
+    .exec-val {{ font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.4; }}
+    .exec-val.red   {{ color: #dc2626; }}
+    .exec-val.amber {{ color: #ea580c; }}
+    .exec-val.blue  {{ color: #2563eb; }}
+    .exec-key {{ font-size: 11px; color: #64748b; margin-top: 2px; }}
+
+    /* ── Alert banner ── */
+    .alert {{ background: #fef2f2; border-bottom: 2px solid #fecaca;
+             padding: 11px 28px; display: flex; align-items: center;
+             gap: 12px; font-size: 13px; color: #991b1b; font-weight: 600; }}
+    .alert-dot {{ width: 9px; height: 9px; background: #dc2626; border-radius: 50%;
+                 animation: blink .9s ease-in-out infinite; flex-shrink: 0; }}
+    .alert-ids {{ margin-left: auto; font-family: monospace; font-size: 12px;
+                 color: #dc2626; font-weight: 700; }}
+
+    /* ── Priority action bar ── */
+    .action-bar {{ background: #eff6ff; border-bottom: 2px solid #bfdbfe;
+                  padding: 11px 28px; display: flex; align-items: center; gap: 12px; }}
+    .action-bar-lbl {{ font-size: 11px; font-weight: 700; color: #1d4ed8;
+                      text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }}
+    .action-bar-val {{ font-size: 13px; color: #1e40af; line-height: 1.5; }}
+
+    /* ── Main layout ── */
     .main {{ display: grid; grid-template-columns: 1fr 300px;
-             gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }}
+            gap: 20px; padding: 20px 28px; max-width: 1400px; margin: 0 auto; }}
 
-    /* Incident cards */
-    .section-title {{ font-size: 12px; font-weight: 600; color: #64748b;
-                      text-transform: uppercase; letter-spacing: .08em;
-                      margin-bottom: 12px; }}
-    .incident-card {{ border: 1px solid; border-radius: 10px; margin-bottom: 12px;
-                      overflow: hidden; }}
-    .card-header {{ display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-                    background: rgba(0,0,0,.15); flex-wrap: wrap; }}
-    .sev-badge {{ color: white; padding: 2px 10px; border-radius: 20px;
-                  font-size: 12px; font-weight: 700; flex-shrink: 0; }}
-    .issue-id {{ font-family: monospace; font-size: 13px; color: #94a3b8;
-                 font-weight: 600; }}
-    .issue-title {{ font-size: 14px; color: #e2e8f0; font-weight: 500; flex: 1; }}
-    .conf-badge {{ font-size: 12px; color: #64748b; margin-left: auto; }}
+    .section-title {{ font-size: 11px; font-weight: 700; color: #64748b;
+                     text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }}
+
+    /* ── Incident cards ── */
+    .incident-card {{ background: #ffffff; border-radius: 10px; margin-bottom: 12px;
+                     border: 1px solid #e2e8f0; overflow: hidden;
+                     box-shadow: 0 1px 3px rgba(0,0,0,.06); }}
+    .card-header {{ display: flex; align-items: center; gap: 10px;
+                   padding: 12px 16px; flex-wrap: wrap;
+                   border-bottom: 1px solid #f1f5f9; }}
+    .sev-badge {{ color: #fff; padding: 3px 10px; border-radius: 20px;
+                 font-size: 11px; font-weight: 700; flex-shrink: 0; }}
+    .issue-id {{ font-family: monospace; font-size: 12px; color: #64748b; font-weight: 600; }}
+    .issue-title {{ font-size: 13px; color: #0f172a; font-weight: 600; flex: 1; }}
+    .conf-badge {{ font-size: 11px; color: #64748b; flex-shrink: 0; }}
     .card-body {{ padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }}
-    .card-section {{ display: flex; flex-direction: column; gap: 4px; }}
-    .label {{ font-size: 11px; font-weight: 600; color: #64748b;
-              text-transform: uppercase; letter-spacing: .06em; }}
-    .value {{ font-size: 14px; color: #cbd5e1; line-height: 1.5; }}
-    .evidence-list {{ padding-left: 18px; }}
-    .evidence-list li {{ font-size: 13px; color: #94a3b8; line-height: 1.6;
-                         margin-bottom: 2px; }}
-    .card-action {{ background: rgba(0,0,0,.2); border-radius: 6px;
-                    padding: 10px 12px; display: flex; gap: 8px; align-items: flex-start; }}
-    .action-label {{ font-size: 11px; font-weight: 700; color: #60a5fa;
-                     white-space: nowrap; padding-top: 2px; }}
-    .action-text {{ font-size: 13px; color: #bfdbfe; line-height: 1.5; }}
+    .label {{ font-size: 10px; font-weight: 700; color: #94a3b8;
+             text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }}
+    .value {{ font-size: 13px; color: #334155; line-height: 1.6; }}
+    .evidence-list {{ padding-left: 16px; }}
+    .evidence-list li {{ font-size: 12px; color: #475569; line-height: 1.6; margin-bottom: 2px; }}
+    .card-action {{ background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;
+                   padding: 10px 12px; display: flex; gap: 8px; align-items: flex-start; }}
+    .action-label {{ font-size: 10px; font-weight: 700; color: #0369a1;
+                    white-space: nowrap; padding-top: 2px; }}
+    .action-text {{ font-size: 12px; color: #0c4a6e; line-height: 1.6; }}
 
-    /* Sidebar */
-    .sidebar {{ display: flex; flex-direction: column; gap: 20px; }}
-    .sidebar-card {{ background: #1e293b; border: 1px solid #334155;
-                     border-radius: 10px; padding: 16px; }}
+    /* Left border accent per severity */
+    .card-p0 {{ border-left: 4px solid #dc2626; }}
+    .card-p1 {{ border-left: 4px solid #ea580c; }}
+    .card-p2 {{ border-left: 4px solid #d97706; }}
+    .card-p3 {{ border-left: 4px solid #16a34a; }}
 
-    /* Deploys */
-    .deploy-item {{ padding: 10px 0; border-bottom: 1px solid #1e293b; }}
+    /* ── Sidebar ── */
+    .sidebar {{ display: flex; flex-direction: column; gap: 16px; }}
+    .sidebar-card {{ background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
+                    padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }}
+
+    .deploy-item {{ padding: 10px 0; border-bottom: 1px solid #f1f5f9; }}
     .deploy-item:last-child {{ border-bottom: none; padding-bottom: 0; }}
-    .deploy-header {{ display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }}
-    .deploy-svc {{ font-size: 13px; font-weight: 600; color: #e2e8f0; }}
-    .deploy-ver {{ font-size: 11px; color: #94a3b8; font-family: monospace; }}
-    .deploy-ago {{ font-size: 11px; color: #64748b; margin-left: auto; }}
-    .deploy-summary {{ font-size: 12px; color: #64748b; margin-bottom: 3px; }}
+    .deploy-header {{ display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }}
+    .deploy-svc {{ font-size: 12px; font-weight: 700; color: #0f172a; }}
+    .deploy-ver {{ font-size: 11px; color: #64748b; font-family: monospace; }}
+    .deploy-ago {{ font-size: 11px; color: #94a3b8; margin-left: auto; }}
+    .deploy-summary {{ font-size: 11px; color: #64748b; margin-bottom: 3px; }}
     .deploy-rollback {{ font-size: 11px; font-weight: 600; }}
 
-    /* Resolved */
-    .resolved-item {{ display: flex; align-items: center; gap: 8px; padding: 8px 0;
-                      border-bottom: 1px solid #1e293b; }}
+    .resolved-item {{ display: flex; align-items: center; gap: 8px;
+                     padding: 7px 0; border-bottom: 1px solid #f1f5f9; }}
     .resolved-item:last-child {{ border-bottom: none; }}
-    .resolved-id {{ font-family: monospace; font-size: 12px; color: #60a5fa; flex-shrink: 0; }}
-    .resolved-title {{ font-size: 12px; color: #64748b; flex: 1; }}
-    .resolved-age {{ font-size: 11px; color: #475569; flex-shrink: 0; }}
+    .resolved-id {{ font-family: monospace; font-size: 11px; color: #16a34a; font-weight: 700; }}
+    .resolved-title {{ font-size: 11px; color: #64748b; flex: 1; }}
+    .resolved-age {{ font-size: 10px; color: #94a3b8; }}
 
-    /* Run history */
-    .run-item {{ display: flex; align-items: center; gap: 8px; padding: 7px 0;
-                 border-bottom: 1px solid #1e293b; }}
+    .run-item {{ display: flex; align-items: center; gap: 8px;
+                padding: 7px 0; border-bottom: 1px solid #f1f5f9; }}
     .run-item:last-child {{ border-bottom: none; }}
     .run-dot {{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }}
-    .run-time {{ font-size: 12px; color: #94a3b8; font-family: monospace; }}
-    .run-detail {{ font-size: 11px; color: #64748b; margin-left: auto; }}
+    .run-time {{ font-size: 11px; color: #334155; font-family: monospace; }}
+    .run-detail {{ font-size: 11px; color: #94a3b8; margin-left: auto; }}
 
-    .footer {{ text-align: center; padding: 24px; color: #334155; font-size: 12px; }}
-    .footer span {{ color: #475569; }}
+    .footer {{ text-align: center; padding: 24px; color: #94a3b8; font-size: 12px; }}
   </style>
 </head>
 <body>
@@ -338,30 +409,33 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
 <div class="header">
   <div class="header-left">
     <div class="header-title">🔍 Always-On Ops Agent</div>
-    <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+    <div class="live-pill"><span class="live-dot"></span> LIVE</div>
   </div>
-  <div class="header-meta">
-    Last run: <span>{now_utc} UTC</span><br>
-    Auto-refreshes every 60s · Powered by Claude
+  <div class="header-right">
+    <div class="header-meta">
+      Last run: <strong>{now_utc} UTC</strong><br>
+      Next run in: <strong id="cd">—</strong> · Auto-refreshes every 60s
+    </div>
+    <div class="powered">Powered by <span>Claude Sonnet 4.6</span></div>
   </div>
 </div>
 
 <div class="stats-bar">
   <div class="stat critical">
     <div class="stat-num">{critical}</div>
-    <div class="stat-label">Critical (P0+P1)</div>
+    <div class="stat-label">Critical (P0 + P1)</div>
   </div>
   <div class="stat warning">
-    <div class="stat-num">{counts.get("P2",0)}</div>
+    <div class="stat-num">{counts.get("P2", 0)}</div>
     <div class="stat-label">Warning (P2)</div>
   </div>
   <div class="stat low">
-    <div class="stat-num">{counts.get("P3",0)}</div>
+    <div class="stat-num">{counts.get("P3", 0)}</div>
     <div class="stat-label">Low (P3)</div>
   </div>
   <div class="stat total">
     <div class="stat-num">{len(open_results)}</div>
-    <div class="stat-label">Open</div>
+    <div class="stat-label">Open Incidents</div>
   </div>
   <div class="stat resolved">
     <div class="stat-num">{resolved_today}</div>
@@ -369,7 +443,9 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
   </div>
 </div>
 
+{exec_html}
 {alert_html}
+{action_bar_html}
 
 <div class="main">
   <div class="incidents-col">
@@ -385,18 +461,29 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
 
     <div class="sidebar-card">
       <div class="section-title">Resolved Recently</div>
-      {resolved_html if resolved_html else '<div style="color:#475569;font-size:13px;">No resolved incidents</div>'}
+      {resolved_html if resolved_html else resolved_fallback}
     </div>
 
     <div class="sidebar-card">
       <div class="section-title">Agent Run History</div>
-      {runs_html if runs_html else '<div style="color:#475569;font-size:13px;">No runs yet</div>'}
+      {runs_html if runs_html else runs_fallback}
     </div>
   </div>
 </div>
 
-<div class="footer">Always-On Ops Agent · <span>sugoi-star/always-on-agent</span> · Refreshes hourly via Claude Routines</div>
+<div class="footer">Always-On Ops Agent · sugoi-star/always-on-agent · Refreshes hourly via Claude Routines</div>
 
+<script>
+  function tick() {{
+    const now = new Date(), next = new Date(now);
+    next.setMinutes(7, 0, 0);
+    if (now.getMinutes() >= 7) next.setHours(next.getHours() + 1);
+    const s = Math.max(0, Math.floor((next - now) / 1000));
+    document.getElementById('cd').textContent =
+      String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+  }}
+  tick(); setInterval(tick, 1000);
+</script>
 </body>
 </html>"""
 
@@ -404,8 +491,7 @@ def generate_dashboard(open_results, resolved_issues, deploys, run_log, run_time
 def commit_dashboard(html, run_log):
     (REPO / "index.html").write_text(html)
     save_run_log(run_log)
-    subprocess.run(["git", "add", "index.html", "agent_runs.json",
-                    "issues/PROD-4531.json", "issues/PROD-4478.json", "issues/PROD-4461.json"],
+    subprocess.run(["git", "add", "index.html", "agent_runs.json"],
                    cwd=REPO, capture_output=True)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     subprocess.run(["git", "commit", "-m", f"ops-agent: triage report {ts}"],
